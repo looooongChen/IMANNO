@@ -1,0 +1,5 @@
+BROWSE = 'browse'
+POLYGON = 'polygon'
+OVAL = 'oval'
+POINT = 'point'
+BBX = 'bouding box'

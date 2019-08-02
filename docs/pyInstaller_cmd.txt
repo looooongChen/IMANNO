@@ -1,0 +1,2 @@
+step1: pyinstaller main.py --onefile
+step2: copy ./config ./icons ./uis (optionally ./demo_images ./docs) in the the the same folder of the generated main.exe
