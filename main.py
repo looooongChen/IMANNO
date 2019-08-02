@@ -151,9 +151,9 @@ class MainWindow(QMainWindow):
         self.menus['file'] = menu
 
         menu = mBar.addMenu('Edit')
-        menu.addAction('Extract Patches', self.extract_patch)
-        menu.addAction('Extract Masks', self.extract_mask)
-        menu.addAction('Clean Annotations', self.clean_annotation)
+        menu.addAction('Extract Objects as Patches', self.extract_patch)
+        menu.addAction('Extract Label Mask', self.extract_mask)
+        menu.addAction('Clean Noisy Annotations', self.clean_annotation)
         self.menus['edit'] = menu
 
         menu = mBar.addMenu('Mode')
