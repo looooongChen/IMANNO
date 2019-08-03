@@ -9,6 +9,7 @@ from components.labelDock import LabelDock
 from components.extract import PatchExtractor, MaskExtractor
 from components.clean_data import AnnotationCleaner
 from components.setting import MaskDirDialog
+from components.mask2contour import mask2contour
 
 
 
@@ -405,15 +406,12 @@ class MainWindow(QMainWindow):
             return
         
         matched_mask = self.match_mask(self.currentImageFile)
-        print(matched_mask)
         if matched_mask is not None:
             mask_img = cv2.imread(matched_mask, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-        # 
-        # here get annotations (Nx2 coordinates)
-        #   
-        # for anno in annotations:
-        #     self.annotationMgr.new_annotation(POLYGON, anno):
-        pass
+            annotations = mask2contour(mask_img)
+            for anno in annotations:
+                anno_approxi = np.squeeze(cv2.approxPolyDP(np.float32(anno), 0.7, True))
+                self.annotationMgr.new_annotation(POLYGON, anno_approxi)
     
     def match_mask(self, fname):
         if self.masks is None:
