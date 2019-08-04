@@ -395,7 +395,7 @@ class MainWindow(QMainWindow):
 
     def set_mask_dir(self):
         self.maskDirSetting.exec()
-        if self.maskDirSetting.import_dir is not None:
+        if len(self.maskDirSetting.import_dir) != 0:
             file2index, _ = self.update_images_in_dir(self.maskDirSetting.import_dir)
             self.masks = list(file2index.keys())
 

@@ -522,6 +522,8 @@ class AnnotationManager(object):
     def new_annotation(self, type, dataObject, skip_dlg=False):
 
         timestamp = datim.today().isoformat('@')
+        while timestamp in self.annotations.keys():
+            timestamp = datim.today().isoformat('@')
 
         if type == POLYGON:
             annotation = PolygonAnnotation(timestamp, dataObject)

@@ -1,9 +1,0 @@
-DISKUS Bild  : c:\diskus.bil\Phenesens_c\19.BMP
-DISKUS BG    : Phenesens c
-Bildname     : C18   Lfd-Nr : 19
-Aufgenommen  : 20.06.2018  12:08
-Quelle       : TWAIN = Leica DC 300
-Objektiv     : 8
-Adapter      : 1
-px->my in x  : 10,77200
-px->my in y  : 10,77200

@@ -11,7 +11,8 @@ def mask2contour(img):
     img_unconnected = np.where(img==0, 0, 255).astype('uint8')
     img_unconnected = np.where(img_dilate-img != 0, 0, img_unconnected).astype('uint8')
 
-    _, contours, _ = cv2.findContours(img_unconnected, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    ret = cv2.findContours(img_unconnected, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours = ret[-2]
 
     print(len(contours), 'contours found!')
 
