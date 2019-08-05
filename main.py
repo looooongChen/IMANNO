@@ -1,6 +1,10 @@
 import os.path as ospath
 import os
-from PyQt4.QtGui import *
+# from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget, QToolBar, \
+    QPushButton, QFileDialog, QMessageBox
+from PyQt5.QtGui import QFont, QImage
+from PyQt5 import QtCore
 import json
 import cv2
 
@@ -346,7 +350,8 @@ class MainWindow(QMainWindow):
             self.annotationMgr.needsSave = False
         if not filename:
             filename = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'])
-            if filename:
+            filename = filename[0]
+            if len(filename) == 0:
                 print("File opened: ", filename)
         self.currentImageFile = str(filename)
         # print(filename)
@@ -381,14 +386,8 @@ class MainWindow(QMainWindow):
 
         # load annotation into annotation manager
         self.annotationMgr.load_from_file(self.currentAnnoFile)
-
-        ##################################################
-        # self.labelManager.refresh()
-        ##################################################
-
-        # refresh the canvas
         self.labelDock.initialize()
-        self.scene.update()
+        # self.scene.updateScene()
 
     def save_annotations(self):
         self.annotationMgr.save_to_file(self.currentAnnoFile)
@@ -509,6 +508,8 @@ class MainWindow(QMainWindow):
 
     def update_display_channel(self, index):
         attr_name = self.labelDock.channel.itemText(index)
+        if len(attr_name) == 0:
+            return
         if attr_name == "Display without a certain channel.":
             self.scene.display_attr = 1
         elif attr_name == "Do not display masks.":

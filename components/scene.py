@@ -1,5 +1,8 @@
-from PyQt4.QtGui import *
-from PyQt4 import QtCore
+# from PyQt5.QtGui import *
+from PyQt5 import QtCore
+from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent
+from PyQt5.QtGui import QImage, QPixmap, QTransform
 import numpy as np
 
 from .commands import *
@@ -49,18 +52,23 @@ class Scene(QGraphicsScene):
 
     def set_canvas(self, canvas):
         self.canvas = canvas
-
-    def setNewImage(self, image):
-
-        self.bgImage = self.image2QImage(image)
+    
+    def clear_items(self):
         for item in self.items():
             if item != self.bgPixmap:
                 self.removeItem(item)
-        self.updateScene()
+        self.selectedItems.clear()
+
+    def setNewImage(self, image):
+        self.clear_items()
+        self.bgImage = self.image2QImage(image)
+        self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
+        # self.updateScene()
 
     def setImage(self, image):
         self.bgImage = self.image2QImage(image)
-        self.updateScene()
+        self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
+        # self.updateScene()
 
     def deleteItem(self):
         self.currentCommand = DeleteAnnotation(self, self.annotationMgr, self.selectedItems)
@@ -91,7 +99,6 @@ class Scene(QGraphicsScene):
         if self.bgImage is None:
             return
         self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
-
         self.update_display_channel()
 
 
@@ -104,7 +111,7 @@ class Scene(QGraphicsScene):
 
 
     def selectItem(self, event):
-        item = self.itemAt(event.scenePos())
+        item = self.itemAt(event.scenePos(), QTransform())
 
         for selected in self.selectedItems:
             self.highlight(selected, 'restore')

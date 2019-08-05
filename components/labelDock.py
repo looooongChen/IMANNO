@@ -1,7 +1,8 @@
-from PyQt4 import uic
-from PyQt4.QtGui import QDockWidget, QDialog, QMessageBox, QTreeWidgetItem, \
-    QTableWidgetItem, QIcon, QFileDialog, QColorDialog, QColor, QPixmap, QMainWindow
-from PyQt4.QtCore import Qt, QSize, pyqtSignal
+from PyQt5 import uic
+from PyQt5.QtGui import QIcon, QColor, QPixmap
+from PyQt5.QtWidgets import QDockWidget, QDialog, QMessageBox, QTreeWidgetItem, \
+    QTableWidgetItem, QFileDialog, QColorDialog, QMainWindow
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
 import numpy as np
 import h5py
 import os
@@ -71,7 +72,7 @@ class LabelDock(QDockWidget):
                 if index != -1:
                     self.ui.channel.removeItem(index)
             elif type == 'label':
-                self.annotationMgr.remove_label(item.text(0), item.parent().text(0))
+                self.annotationMgr.remove_label(item.text(1), item.parent().text(0))
             self.update()
 
     def remove_given_label(self):
@@ -96,7 +97,7 @@ class LabelDock(QDockWidget):
                         self.ui.channel.removeItem(index)
                         self.ui.channel.addItem(item.text(0))
                 elif type == 'label':
-                    self.annotationMgr.rename_label(name, item.text(0), item.parent().text(0))
+                    self.annotationMgr.rename_label(name, item.text(1), item.parent().text(0))
                 self.update()
 
     def get_current_item(self):
@@ -113,7 +114,7 @@ class LabelDock(QDockWidget):
     def add_label(self):
         item, type = self.get_current_item()
         if item is not None and type == 'label':
-            self.annotationMgr.add_label_to_selected_annotations(item.text(0), item.parent().text(0))
+            self.annotationMgr.add_label_to_selected_annotations(item.text(1), item.parent().text(0))
         self.update_info_table()
         self.graphItemsUpdate.emit()
 
@@ -222,13 +223,14 @@ class LabelDock(QDockWidget):
 
     def update_label_tree(self):
         self.ui.labelTree.clear()
+        self.ui.labelTree.setHeaderLabels(['Property', 'Value (Label)'])
         for attr_name in self.annotationMgr.attributes.keys():
-            attr_node = QTreeWidgetItem([attr_name])
+            attr_node = QTreeWidgetItem([attr_name, ''])
             attr_node.setIcon(0, QIcon("./icons/arrow.png"))
             self.ui.labelTree.addTopLevelItem(attr_node)
             for label_name, label in self.annotationMgr.attributes[attr_name].labels.items():
-                label_node = QTreeWidgetItem([label_name])
-                pixmap = QPixmap(20,20)
+                label_node = QTreeWidgetItem(['', label_name])
+                pixmap = QPixmap(120,60)
                 pixmap.fill(QColor(label.color[0],label.color[1],label.color[2]))
                 # label_node.setIcon(0, QIcon("./icons/arrow.png"))
                 label_node.setIcon(0, QIcon(pixmap))

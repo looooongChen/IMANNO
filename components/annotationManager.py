@@ -1,10 +1,10 @@
-from PyQt4 import uic, QtCore
-from PyQt4.QtCore import Qt, QRectF, QPointF, QSizeF, QLineF
-from PyQt4.QtGui import QPainter, QPen, QColor, QBrush, QPolygonF, QPixmap, QIcon, QApplication, QColorDialog, QDialog, \
-    QMainWindow, QDockWidget, QListWidgetItem, QUndoCommand, QFileDialog, QTransform, \
+from PyQt5 import uic
+from PyQt5.QtCore import Qt, QRectF, QPointF, QSizeF, QLineF
+from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform, QPainter, \
+            QPixmap, QIcon, QTransform 
+from PyQt5.QtWidgets import QApplication, QColorDialog, QDialog, \
+    QMainWindow, QDockWidget, QListWidgetItem, QUndoCommand, \
     QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem
-# from PyQt4.QtWidgets import QApplication, QColorDialog, QDialog, QGraphicsPolygonItem, QMainWindow, QDockWidget, \
-#     QListWidgetItem, QUndoCommand, QFileDialog
 from datetime import datetime as datim
 import numpy as np
 import h5py
@@ -553,8 +553,8 @@ class AnnotationManager(object):
         self.annotations[annotation.timestamp] = annotation
         self.add_graphItem(annotation, display_attr)
 
-        if self.scene:
-            self.scene.updateScene()
+        # if self.scene:
+        #     self.scene.updateScene()
 
     def add_label_to_selected_annotations(self, label_name, attr_name):
 

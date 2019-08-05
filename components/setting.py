@@ -1,5 +1,5 @@
-from PyQt4 import uic
-from PyQt4.QtGui import QDialog, QFileDialog
+from PyQt5 import uic
+from PyQt5.QtWidgets import QDialog, QFileDialog
 
 
 class MaskDirDialog(QDialog):

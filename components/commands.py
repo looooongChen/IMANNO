@@ -1,8 +1,10 @@
 __author__ = 'bug,long'
 
-from PyQt4.QtGui import QPen, QBrush, QPolygonF, QColor, QGraphicsPolygonItem, QTransform
+from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform 
+from PyQt5.QtWidgets import QGraphicsPolygonItem
+from PyQt5.QtCore import Qt, QRectF, QLineF, QPointF, QSizeF
 # from PyQt4.QtWidgets import
-from PyQt4.QtCore import *
+# from PyQt5.QtCore import *
 # import FESI as fesi
 import numpy as np
 import cv2

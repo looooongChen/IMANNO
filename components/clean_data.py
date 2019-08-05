@@ -1,5 +1,5 @@
-from PyQt4 import uic
-from PyQt4.QtGui import QDialog, QFileDialog, QProgressBar
+from PyQt5 import uic
+from PyQt5.QtWidgets import QDialog, QFileDialog, QProgressBar 
 import os
 import h5py
 import cv2
