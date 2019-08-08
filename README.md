@@ -29,6 +29,20 @@ Polygons, Ellipses, Bounding Box, Dot
 
 ### Labeling
 
+Label docker on the right side:
+- add new attributes
+- add new labels to an attribute
+- save current attributes and labels as default
+- load default
+
+Give labels:
+- double click to select (+Ctrl for multiple selection)
+- double click a label in the label docker to give that label to selected objects
+
+Display channel (attribute):
+- objects displayed with different colors based on the labels of the selectes attribute channel
+- objecst without a label will be black 
+
 ### About annotation formats
 
 Annotations are saved in .hdf5 file with the same name of the image. Some tools are provided to export the annotations as other formats.
@@ -39,19 +53,19 @@ Annotations are saved in .hdf5 file with the same name of the image. Some tools 
 /attributes/attr_names/<label_name>
 
 Polygon:  
-- /annotations/<timestamp_of_annotation>/boundingBox:...   
-- /annotations/<timestamp_of_annotation>/polygon:...  
+- /annotations/<timestamp_of_annotation>/boundingBox:(4,)
+- /annotations/<timestamp_of_annotation>/polygon:(N,2)
 
 Bouding box:  
-- /annotations/<timestamp_of_annotation>/boundingBox:...   
+- /annotations/<timestamp_of_annotation>/boundingBox:(4,)   
 
 Ellipse:  
-- /annotations/<timestamp_of_annotation>/center:...   
-- /annotations/<timestamp_of_annotation>/angle:...   
-- /annotations/<timestamp_of_annotation>/axis:...  
- 
+- /annotations/<timestamp_of_annotation>/center:(2,)  
+- /annotations/<timestamp_of_annotation>/angle:(1,)   
+- /annotations/<timestamp_of_annotation>/axis:(2,)  
+
 Dot:  
-- /annotations/<timestamp_of_annotation>/pt:...  
+- /annotations/<timestamp_of_annotation>/pt:(2,) 
 
 Data structure
 - boundingBox(4,): x, y, w, h  
