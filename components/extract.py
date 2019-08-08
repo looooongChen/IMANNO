@@ -19,7 +19,6 @@ class PatchExtractor(QDialog):
         self.ui.dest_button.clicked.connect(self.get_dest_dir)
         self.ui.extract_button.clicked.connect(self.extract)
         self.ui.format.addItem(".png")
-        self.ui.format.addItem(".mat")
         self.ui.padding.setText('0.1')
         self.ui.progress.setValue(0)
 
