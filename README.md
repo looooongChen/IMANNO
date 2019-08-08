@@ -1,5 +1,5 @@
-# IMMANO
-An image annotation toolkit 
+# IMANNO (IMage ANNOtation toolkit)
+An image annotation toolkit   
 by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 (https://www.lfb.rwth-aachen.de/en/)
 
