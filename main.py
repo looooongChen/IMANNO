@@ -346,12 +346,14 @@ class MainWindow(QMainWindow):
             self.annotationMgr.needsSave = False
         if not filename:
             filename = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'])
-            if filename:
+            if len(filename) != 0:
                 print("File opened: ", filename)
+            else:
+                return
         self.currentImageFile = str(filename)
         # print(filename)
-        if '' == self.currentImageFile:
-            return
+        # if '' == self.currentImageFile:
+        #     return
 
         # read image
         self.auto_contrast = False

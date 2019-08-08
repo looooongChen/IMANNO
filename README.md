@@ -1,2 +1,4 @@
 # IMMANO
-an image annotation toolkit
+
+Old version, stops update
+
