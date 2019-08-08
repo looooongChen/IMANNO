@@ -34,9 +34,9 @@ Polygons, Ellipses, Bounding Box, Dot
 Annotations are saved in .hdf5 file with the same name of the image. Some tools are provided to export the annotations as other formats.
 
 #### .hdf5 structure
-/annotations/<timestamp_of_annotation>/(attr:type, timestamp)  
-/annotations/<timestamp_of_annotation>/labels/attr_names(attr: label_name)   
-/attributes/attr_names/label_names
+/annotations/<timestamp_of_annotation>(attr:type, timestamp)  
+/annotations/<timestamp_of_annotation>/labels/<attribute_name>(attr: <label>)   
+/attributes/attr_names/<label>
 
 Polygon:  
 /annotations/<timestamp_of_annotation>/boundingBox:...   
