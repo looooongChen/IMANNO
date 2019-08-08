@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
         # btnUndo = QPushButton(QIcon('icons/undo.ico'), '', self)
 
         ####
-
+        
         btnGrab = QPushButton(QIcon('icons/browse.png'), 'Browse', self)
         btnGrab.setToolTip('(SPACE) browse mode, no drawing')
         # btnGrab.setShortcut('SPACE')
@@ -351,12 +351,14 @@ class MainWindow(QMainWindow):
         if not filename:
             filename = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'])
             filename = filename[0]
-            if len(filename) == 0:
+            if len(filename) != 0:
                 print("File opened: ", filename)
+            else:
+                return
         self.currentImageFile = str(filename)
         # print(filename)
-        if '' == self.currentImageFile:
-            return
+        # if '' == self.currentImageFile:
+        #     return
 
         # read image
         self.auto_contrast = False
@@ -393,8 +395,8 @@ class MainWindow(QMainWindow):
         self.annotationMgr.save_to_file(self.currentAnnoFile)
 
     def set_mask_dir(self):
-        self.maskDirSetting.exec()
-        if len(self.maskDirSetting.import_dir) != 0:
+        self.maskDirSetting.exec() == QDialog.Accepted
+        if self.maskDirSetting.import_dir is not None:
             file2index, _ = self.update_images_in_dir(self.maskDirSetting.import_dir)
             self.masks = list(file2index.keys())
 
