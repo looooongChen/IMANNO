@@ -2,8 +2,8 @@ import os.path as ospath
 import os
 # from PyQt5.QtGui import *
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget, QToolBar, \
-    QPushButton, QFileDialog, QMessageBox
-from PyQt5.QtGui import QFont, QImage
+    QPushButton, QFileDialog, QMessageBox, QShortcut
+from PyQt5.QtGui import QFont, QImage, QKeySequence
 from PyQt5 import QtCore
 import json
 import cv2
@@ -96,6 +96,7 @@ class MainWindow(QMainWindow):
         self.img2index = {}
         self.index2img = {}
         self.masks = []
+        self.display_channel_buffer = None
 
         ####################################
         #### load or create config file ####
@@ -322,14 +323,20 @@ class MainWindow(QMainWindow):
 
         self.addToolBar(Qt.LeftToolBarArea, self.tool)
 
+        ###################
+        #### shortcuts ####
+        ###################
+
+        hideMaskShortcut = QShortcut(QKeySequence(QtCore.Qt.Key_Tab), self)
+        hideMaskShortcut.activated.connect(self.hideMask)
+
         ##############################
         #### setup the status bar ####
         ##############################
 
         self.status = self.statusBar()
         # self.setStatusBar(statusBar)
-        self.status.showMessage("Ready")
-
+        self.status.showMessage("Ready ")
 
         # self.labelDock.hide()
 
@@ -389,6 +396,7 @@ class MainWindow(QMainWindow):
         # load annotation into annotation manager
         self.annotationMgr.load_from_file(self.currentAnnoFile)
         self.labelDock.initialize()
+        self.status.showMessage(self.status_string())
         # self.scene.updateScene()
 
     def save_annotations(self):
@@ -460,11 +468,11 @@ class MainWindow(QMainWindow):
             img = 255*(img-img.min())/(img.max()-img.min())
             self.scene.setImage(img)
             self.auto_contrast = True
-            self.status.showMessage("Auto Contrast: On")
+            self.status.showMessage(self.status_string())
         else:
             self.scene.setImage(self.image)
             self.auto_contrast = False
-            self.status.showMessage("Auto Contrast: Off")
+            self.status.showMessage(self.status_string())
 
     def deleteItem(self):
         self.scene.deleteItem()
@@ -549,6 +557,30 @@ class MainWindow(QMainWindow):
         annotationCleaner = AnnotationCleaner()
         annotationCleaner.exec()
         del annotationCleaner
+
+    def status_string(self):
+        status = ''
+        if self.currentImageFile != '':
+            ind = self.img2index[ospath.normpath(self.currentImageFile)]
+            status = status + 'Image ' + str(ind) + " of " + str(len(self.img2index))    
+        if self.auto_contrast == True:
+            status = status + ', Auto Contrast: On'
+        else:
+            status = status + ', Auto Contrast: Off'
+        return status
+    
+    def hideMask(self):
+        curIndex = self.labelDock.ui.channel.currentIndex()
+        if curIndex != 1:
+            self.display_channel_buffer = curIndex
+            self.labelDock.ui.channel.setCurrentIndex(1)
+        elif self.display_channel_buffer is not None:
+            self.labelDock.ui.channel.setCurrentIndex(self.display_channel_buffer)
+        else:
+            self.labelDock.ui.channel.setCurrentIndex(0)
+            
+
+        
         
 
 if __name__ == "__main__":
