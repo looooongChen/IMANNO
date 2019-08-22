@@ -237,5 +237,129 @@ class MaskExtractor(QDialog):
                 cv2.imwrite(os.path.join(obj_dir, 'obj_'+str(index)+".png"), mask)
         else:
             cv2.imwrite(os.path.join(save_dir, fname+"_mask.png"), masks[0])
+
+
+class DetectionAnnoExtractor(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.ui = uic.loadUi('uis/DetectionAnnoExtractor.ui', baseinstance=self)
+        self.setWindowTitle("Extract annotation file for object detection")
+        self.ui.source_button.clicked.connect(self.get_source_dir)
+        self.ui.dest_button.clicked.connect(self.get_dest_dir)
+        self.ui.extract_button.clicked.connect(self.extract)
+        self.ui.format.addItem(".xml")
+        # self.ui.format.addItem(".mat")
+        self.ui.progress.setValue(0)
+
+        self.source_dir = None
+        self.dest_dir = None
+
+    def get_source_dir(self):
+        self.source_dir = QFileDialog.getExistingDirectory(self, "Select Source Directory")
+        self.ui.source.setText(self.source_dir)
+
+    def get_dest_dir(self):
+        self.dest_dir = QFileDialog.getExistingDirectory(self, "Select Save Directory")
+        self.ui.dest.setText(self.dest_dir)
+
+    def extract(self):
+        if self.source_dir is None or self.dest_dir is None:
+            return
+        
+        samples = {}
+        for f in os.listdir(self.source_dir):
+            path = os.path.join(self.source_dir, f)
+            if os.path.isdir(path):
+                continue
+            filename, ext = os.path.splitext(path)
+            if ext[1:] not in IMAGE_FORMATS:
+                continue
+            if os.path.exists(filename + '.hdf5'):
+                samples[path] = filename + '.hdf5'
+        
+        image_index = 1
+        total = len(samples)
+        for img_path, hdf5_path in samples.items():
+            print("processing: " + img_path)
+
+            annoList = []
+            with h5py.File(hdf5_path) as location:
+                # self.load_attributes(location)
+                if 'annotations' in location.keys():
+                    for timestamp in location['annotations']:
+                        anno = location['annotations'][timestamp]
+                        type = anno.attrs['type']
+                        if type == POLYGON or type == BBX:
+                            bbx = anno['boundingBox']
+                            annoList.append({'name': 'obj', 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
+                        else:
+                            print("Only polygon and bounding box type are supported.")
+                            continue
+                if str(self.ui.format.currentText()) == '.xml':
+                    fname = os.path.splitext(os.path.basename(img_path))[0]
+                    save_path = os.path.join(self.dest_dir, fname+'.xml')
+                    DetectionAnnoExtractor.createXml(annoList, save_path)
+
+            image_index += 1
+            self.ui.progress.setValue(round(image_index*100/total))
+        self.ui.progress.setValue(100)    
+
+    
+    @classmethod
+    def createXml(cls, AnnoList, file_name):
+        """
+
+        :param AnnoList: include 'name' and 'bndbox'.
+        e.g:
+        AnnoList = [
+        {'name': 'test', 'bndbox': ('xmin', 'ymin', 'xmax', 'ymax')},
+        {'name': 'test2', 'bndbox': ('xmin', 'ymin2', 'xmax', 'ymax')}
+        ]
+
+        :param file_name: should be defined.
+        :return: .xml file
+        """
+        import xml.dom.minidom
+
+        doc = xml.dom.minidom.Document()
+        root = doc.createElement('Annotation')
+        doc.appendChild(root)
+
+        for dict in AnnoList:
+
+            nodeObject = doc.createElement('object')
+
+            nodeName = doc.createElement('name')
+            nodeName.appendChild(doc.createTextNode(str(dict['name'])))
+
+            nodeBndbox = doc.createElement('bndbox')
+
+            nodeXmin = doc.createElement('xmin')
+            nodeXmin.appendChild(doc.createTextNode(str(dict['bndbox'][0])))
+
+            nodeYmin = doc.createElement('ymin')
+            nodeYmin.appendChild(doc.createTextNode(str(dict['bndbox'][1])))
+
+            nodeXmax = doc.createElement('xmax')
+            nodeXmax.appendChild(doc.createTextNode(str(dict['bndbox'][2])))
+
+            nodeYmax = doc.createElement('ymax')
+            nodeYmax.appendChild(doc.createTextNode(str(dict['bndbox'][3])))
+
+            nodeBndbox.appendChild(nodeXmin)
+            nodeBndbox.appendChild(nodeYmin)
+            nodeBndbox.appendChild(nodeXmax)
+            nodeBndbox.appendChild(nodeYmax)
+
+            nodeObject.appendChild(nodeName)
+            nodeObject.appendChild(nodeBndbox)
+
+            root.appendChild(nodeObject)
+
+        fp = open(file_name, 'w')
+        doc.writexml(fp, indent='\t', addindent='\t', newl='\n', encoding="utf-8")
+        fp.close()
+
+    
             
             
