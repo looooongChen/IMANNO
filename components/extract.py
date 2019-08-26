@@ -1,10 +1,12 @@
 from PyQt5 import uic
 from PyQt5.QtWidgets import QDialog, QFileDialog, QProgressBar 
+from PyQt5.QtCore import Qt
 import os
 import h5py
 import cv2
 from .graphDef import *
 import numpy as np
+import shutil
 IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']
 
 class PatchExtractor(QDialog):
@@ -34,8 +36,11 @@ class PatchExtractor(QDialog):
         self.ui.dest.setText(self.dest_dir)
 
     def extract(self):
-        if self.source_dir is None or self.dest_dir is None:
+        self.source_dir = str(self.ui.source.text()).strip()
+        self.dest_dir = str(self.ui.dest.text()).strip()
+        if self.source_dir=='' or self.dest_dir=='':
             return
+        
         padding = float(self.ui.padding.text())
         if padding < 0:
             print("Padding value should be positive")
@@ -146,7 +151,9 @@ class MaskExtractor(QDialog):
         self.ui.dest.setText(self.dest_dir)
 
     def extract(self):
-        if self.source_dir is None or self.dest_dir is None:
+        self.source_dir = str(self.ui.source.text()).strip()
+        self.dest_dir = str(self.ui.dest.text()).strip()
+        if self.source_dir=='' or self.dest_dir=='':
             return
         
         samples = {}
@@ -250,6 +257,8 @@ class DetectionAnnoExtractor(QDialog):
         self.ui.format.addItem(".xml")
         # self.ui.format.addItem(".mat")
         self.ui.progress.setValue(0)
+        self.ui.ignore_empty.setCheckState(Qt.Checked)
+        self.ui.copy_image.setCheckState(Qt.Unchecked)
 
         self.source_dir = None
         self.dest_dir = None
@@ -263,7 +272,9 @@ class DetectionAnnoExtractor(QDialog):
         self.ui.dest.setText(self.dest_dir)
 
     def extract(self):
-        if self.source_dir is None or self.dest_dir is None:
+        self.source_dir = str(self.ui.source.text()).strip()
+        self.dest_dir = str(self.ui.dest.text()).strip()
+        if self.source_dir=='' or self.dest_dir=='':
             return
         
         samples = {}
@@ -280,7 +291,6 @@ class DetectionAnnoExtractor(QDialog):
         image_index = 1
         total = len(samples)
         for img_path, hdf5_path in samples.items():
-            print("processing: " + img_path)
 
             annoList = []
             with h5py.File(hdf5_path) as location:
@@ -295,35 +305,68 @@ class DetectionAnnoExtractor(QDialog):
                         else:
                             print("Only polygon and bounding box type are supported.")
                             continue
-                if str(self.ui.format.currentText()) == '.xml':
-                    fname = os.path.splitext(os.path.basename(img_path))[0]
-                    save_path = os.path.join(self.dest_dir, fname+'.xml')
-                    DetectionAnnoExtractor.createXml(annoList, save_path)
+
+            if not annoList and self.ui.ignore_empty.checkState() == Qt.Checked:
+                print("Skip empty image: " + img_path)
+                continue
+            else:
+                print("Process: " + img_path)
+
+            if str(self.ui.format.currentText()) == '.xml':
+                fname = os.path.splitext(os.path.basename(img_path))[0]
+                save_path = os.path.join(self.dest_dir, fname+'.xml')
+                DetectionAnnoExtractor.createXml(annoList, img_path, save_path)
+
+            if self.ui.copy_image.checkState() == Qt.Checked:
+                shutil.copy(img_path, self.dest_dir)
 
             image_index += 1
-            self.ui.progress.setValue(round(image_index*100/total))
+            if int(image_index*100/total) - self.ui.progress.value() >= 1:
+                self.ui.progress.setValue(int(image_index*100/total))
         self.ui.progress.setValue(100)    
 
     
     @classmethod
-    def createXml(cls, AnnoList, file_name):
+    def createXml(cls, AnnoList, img_path, save_name):
         """
-
         :param AnnoList: include 'name' and 'bndbox'.
         e.g:
         AnnoList = [
         {'name': 'test', 'bndbox': ('xmin', 'ymin', 'xmax', 'ymax')},
         {'name': 'test2', 'bndbox': ('xmin', 'ymin2', 'xmax', 'ymax')}
         ]
-
-        :param file_name: should be defined.
-        :return: .xml file
         """
         import xml.dom.minidom
 
         doc = xml.dom.minidom.Document()
-        root = doc.createElement('Annotation')
+        root = doc.createElement('annotation')
         doc.appendChild(root)
+        
+        # file info
+        imgName = doc.createElement('filename')
+        img_name = os.path.basename(img_path)    
+        imgName.appendChild(doc.createTextNode(img_name))
+        root.appendChild(imgName)
+
+        # image size
+        image = cv2.imread(img_path)
+        sz = np.squeeze(image.shape)
+        imgSize = doc.createElement('size')
+
+        imgWidth = doc.createElement('width')
+        imgWidth.appendChild(doc.createTextNode(str(sz[1])))
+        imgSize.appendChild(imgWidth)
+
+        imgHeight = doc.createElement('height')
+        imgHeight.appendChild(doc.createTextNode(str(sz[0])))
+        imgSize.appendChild(imgHeight)
+
+        depth = 1 if len(sz) == 2 else sz[2]
+        imgDepth = doc.createElement('depth')
+        imgDepth.appendChild(doc.createTextNode(str(depth)))
+        imgSize.appendChild(imgDepth)
+
+        root.appendChild(imgSize)
 
         for dict in AnnoList:
 
@@ -335,16 +378,16 @@ class DetectionAnnoExtractor(QDialog):
             nodeBndbox = doc.createElement('bndbox')
 
             nodeXmin = doc.createElement('xmin')
-            nodeXmin.appendChild(doc.createTextNode(str(dict['bndbox'][0])))
+            nodeXmin.appendChild(doc.createTextNode(str(int(dict['bndbox'][0]))))
 
             nodeYmin = doc.createElement('ymin')
-            nodeYmin.appendChild(doc.createTextNode(str(dict['bndbox'][1])))
+            nodeYmin.appendChild(doc.createTextNode(str(int(dict['bndbox'][1]))))
 
             nodeXmax = doc.createElement('xmax')
-            nodeXmax.appendChild(doc.createTextNode(str(dict['bndbox'][2])))
+            nodeXmax.appendChild(doc.createTextNode(str(int(dict['bndbox'][2]))))
 
             nodeYmax = doc.createElement('ymax')
-            nodeYmax.appendChild(doc.createTextNode(str(dict['bndbox'][3])))
+            nodeYmax.appendChild(doc.createTextNode(str(int(dict['bndbox'][3]))))
 
             nodeBndbox.appendChild(nodeXmin)
             nodeBndbox.appendChild(nodeYmin)
@@ -356,7 +399,7 @@ class DetectionAnnoExtractor(QDialog):
 
             root.appendChild(nodeObject)
 
-        fp = open(file_name, 'w')
+        fp = open(save_name, 'w')
         doc.writexml(fp, indent='\t', addindent='\t', newl='\n', encoding="utf-8")
         fp.close()
 
