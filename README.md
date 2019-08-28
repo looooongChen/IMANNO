@@ -3,6 +3,10 @@ An image annotation toolkit
 by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 (https://www.lfb.rwth-aachen.de/en/)
 
+![ui1](docs/ui1.PNG)
+
+![ui2](docs/ui2.PNG)
+
 ## Dependencies:
 
 - python = 3.5
