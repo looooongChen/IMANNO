@@ -247,7 +247,7 @@ IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']
 
 
 #################################
-TP_MASK_SINGLE = " (.png, all objects in one image, may overlap)"
+TP_MASK_SINGLE = "mask, single (.png, all objects in one image, may overlap)"
 TP_MASK_MULTI = "mask, multiple (.png, one mask for each object)"
 TP_BBX = "boundingbox (.xml, PASCAL VOC format)"
 TP_PATCH = "patches (.png)"
