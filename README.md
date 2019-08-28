@@ -49,7 +49,7 @@ Annotations are saved in .hdf5 file with the same name of the image. Some tools 
 
 #### .hdf5 structure
 /annotations/<timestamp_of_annotation>(attr:type, timestamp)  
-/annotations/<timestamp_of_annotation>/labels/<attribute_name>(attr: <label_name>)   
+/annotations/<timestamp_of_annotation>/labels/<attribute_name>(attr: label_name)   
 /attributes/attr_names/<label_name>
 
 Polygon:  

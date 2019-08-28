@@ -10,7 +10,7 @@ import cv2
 
 from components.scene import Scene
 from components.labelDock import LabelDock
-from components.extract import PatchExtractor, MaskExtractor, DetectionAnnoExtractor
+from components.extract import AnnoExporter
 from components.clean_data import AnnotationCleaner
 from components.setting import MaskDirDialog
 from components.mask2contour import mask2contour
@@ -157,9 +157,10 @@ class MainWindow(QMainWindow):
         self.menus['file'] = menu
 
         menu = mBar.addMenu('Edit')
-        menu.addAction('Extract Label Mask', self.extract_mask)
-        menu.addAction('Extract Annotation File for Detection', self.extract_detection_anno)
-        menu.addAction('Extract Objects as Patches', self.extract_patch)
+        # menu.addAction('Extract Label Mask', self.extract_mask)
+        # menu.addAction('Extract Annotation File for Detection', self.extract_detection_anno)
+        # menu.addAction('Extract Objects as Patches', self.extract_patch)
+        menu.addAction('Export Annotations', self.export_annotation)
         menu.addAction('Clean Noisy Annotations', self.clean_annotation)
         self.menus['edit'] = menu
 
@@ -544,20 +545,25 @@ class MainWindow(QMainWindow):
         index2file = {v: k for k, v in file2index.items()}
         return file2index, index2file
 
-    def extract_mask(self):
-        maskExtractor = MaskExtractor()
-        maskExtractor.exec()
-        del maskExtractor
+    # def extract_mask(self):
+    #     maskExtractor = MaskExtractor()
+    #     maskExtractor.exec()
+    #     del maskExtractor
 
-    def extract_detection_anno(self):
-        detectionAnnoExtractor = DetectionAnnoExtractor()
-        detectionAnnoExtractor.exec()
-        del detectionAnnoExtractor
+    # def extract_detection_anno(self):
+    #     detectionAnnoExtractor = DetectionAnnoExtractor()
+    #     detectionAnnoExtractor.exec()
+    #     del detectionAnnoExtractor
 
-    def extract_patch(self):
-        patchExtractor = PatchExtractor()
-        patchExtractor.exec()
-        del patchExtractor
+    # def extract_patch(self):
+    #     patchExtractor = PatchExtractor()
+    #     patchExtractor.exec()
+    #     del patchExtractor
+
+    def export_annotation(self):
+        annoExporter = AnnoExporter()
+        annoExporter.exec()
+        del annoExporter
 
     def clean_annotation(self):
         annotationCleaner = AnnotationCleaner()
