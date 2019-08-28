@@ -75,9 +75,19 @@ Data structure
 - axis(2,): main axis lenght, side axis length  
 - pt(2,): x, y  
 
-#### export whole slide segmentation masks
-#### export object patches
-#### export bounding box as MS-COCO format (.json)
+#### export annotation as other formats
+Edit -> Export Annotations
+- mask, single (.png): export segmentation masks in a single image (objects may overlap)
+- mask, multiple (.png): exports segmetation masks, each image for an object
+- boundingbox (.xml): PASCAL VOC format
+- patches (.png): exports an image patch and segmentation patch for each object
+- skeleton (.png): exports skeletons of objects
+
+options:
+- ignore images without objects annotates: empty images will ignored, otherwise an empty annotation will be generated
+- copy images: copy original image to the save folder, together with the exported annotations
+- padding (only for patches): add a margin (%) to the patch
+- export label of property (only for bounding box): save labels of given property in .xml
 
 ## TODOs:
 

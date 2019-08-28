@@ -247,7 +247,7 @@ IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']
 
 
 #################################
-TP_MASK_SINGLE = "mask, single (.png, all objects in one image, may overlap)"
+TP_MASK_SINGLE = " (.png, all objects in one image, may overlap)"
 TP_MASK_MULTI = "mask, multiple (.png, one mask for each object)"
 TP_BBX = "boundingbox (.xml, PASCAL VOC format)"
 TP_PATCH = "patches (.png)"
@@ -257,7 +257,7 @@ class AnnoExporter(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.ui = uic.loadUi('uis/AnnoExporter.ui', baseinstance=self)
-        self.setWindowTitle("Extract annotation file for object detection")
+        self.setWindowTitle("Export annotation as other formats")
         self.ui.source_button.clicked.connect(self.get_source_dir)
         self.ui.dest_button.clicked.connect(self.get_dest_dir)
         self.ui.extract_button.clicked.connect(self.extract)
