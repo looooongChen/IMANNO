@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
         # setup annotation manager
         self.annotationMgr = AnnotationManager(config=self.config)
         # setup the scene
-        self.scene = Scene(parent=self)
+        self.scene = Scene(config=self.config, parent=self)
         # setup the grahicsView for display
         self.canvas = Canvas(self.scene, parent=self)
         self.maskDirSetting = MaskDirDialog(self)
@@ -166,6 +166,7 @@ class MainWindow(QMainWindow):
         menu.addAction('Polygon', lambda :self.scene.set_tool(POLYGON), 'P')
         menu.addAction('Ellipse', lambda :self.scene.set_tool(OVAL), 'E')
         menu.addAction('Bounding Box', lambda :self.scene.set_tool(BBX), 'B')
+        menu.addAction('Line', lambda :self.scene.set_tool(LINE), 'L')
         menu.addAction('Dot', lambda :self.scene.set_tool(POINT), 'D')
         self.menus['mode'] = menu
 
@@ -264,6 +265,11 @@ class MainWindow(QMainWindow):
         # btnBBX.setShortcut('B')
         btnBBX.clicked.connect(lambda: self.scene.set_tool(BBX))
 
+        btnLine = QPushButton(QIcon('icons/line.png'), 'Line', self)
+        btnLine.setToolTip('(L) draw an annotation line')
+        # btnDot.setShortcut('D')
+        btnLine.clicked.connect(lambda: self.scene.set_tool(LINE))
+
         btnDot = QPushButton(QIcon('icons/dot.png'), 'Dot', self)
         btnDot.setToolTip('(D) draw an annotation key point')
         # btnDot.setShortcut('D')
@@ -311,6 +317,7 @@ class MainWindow(QMainWindow):
         self.tool.addWidget(btnPoly)
         self.tool.addWidget(btnCircle)
         self.tool.addWidget(btnBBX)
+        self.tool.addWidget(btnLine)
         self.tool.addWidget(btnDot)
         self.tool.addWidget(btnDel)
         self.tool.addSeparator()

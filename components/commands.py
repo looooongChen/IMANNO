@@ -1,6 +1,6 @@
-__author__ = 'bug,long'
+__author__ = 'long, bug'
 
-from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform 
+from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform, QPainterPath 
 from PyQt5.QtWidgets import QGraphicsPolygonItem
 from PyQt5.QtCore import Qt, QRectF, QLineF, QPointF, QSizeF
 # from PyQt4.QtWidgets import
@@ -66,14 +66,14 @@ class BaseToolClass(object):
 
 
 class PointPainter(BaseToolClass):
-    def __init__(self, scene, annotationMgr, start):
+    def __init__(self, scene, annotationMgr, start, size=4):
         super().__init__(scene, annotationMgr)
 
         self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
         self.areaBrush = QBrush(QColor(0, 200, 0, 255))
 
         self.start = start
-        self.size = 4
+        self.size = size
 
         self.dotItem = self.scene.addEllipse(start.x()-self.size/2,start.y()-self.size/2, self.size, self.size, self.linePen, self.areaBrush)
 
@@ -94,6 +94,56 @@ class PointPainter(BaseToolClass):
             print(e)
             print("Point annotation saving error :-(")
 
+###################################
+#### class for line drawing ####
+###################################
+
+class LinePainter(BaseToolClass):
+
+    def __init__(self, scene, annotationMgr, start):
+        super().__init__(scene, annotationMgr)
+
+        self.start = start
+        self.line = QPolygonF()
+        self.line << self.start
+        # add a polygon figure to QGraphicsScene
+        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
+
+        path = QPainterPath()
+        path.addPolygon(self.line)
+
+        self.pathItem = self.scene.addPath(path, self.linePen)
+        print('====================================')
+        print('Drawing a new line')
+
+    def mouseMoveEvent(self, event):
+        self.line << event.scenePos()
+        path = QPainterPath()
+        path.addPolygon(self.line)
+        self.pathItem.setPath(path)
+        # self.polygonItem.update()
+
+    def process(self):
+        try:
+            # get data from QPolygonF
+            vptr = self.line.data()
+            vptr.setsize(8*2*self.line.size())
+            # compute a approximation of the original polygon
+            poly = np.ndarray(shape=(self.line.size(), 2), dtype=np.float64, buffer=vptr)
+            poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
+            # display message
+            print("Line finished: ", self.pathItem.boundingRect(), poly.shape[0], poly_appx.shape[0])
+            print("Pass the line to annotationMgr")
+            self.scene.removeItem(self.pathItem)
+            self.annotationMgr.new_annotation(LINE, poly_appx)
+            self.scene.set_tool(LINE)
+        except Exception as e:
+            print(e)
+            print("You should move the mouse a little more before finishing a polygon :-)")
+
+    def cancel(self):
+        print("Drawing canceled")
+        self.scene.removeItem(self.pathItem)
 
 
 ###################################

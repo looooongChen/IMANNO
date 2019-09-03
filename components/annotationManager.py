@@ -1,10 +1,10 @@
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QRectF, QPointF, QSizeF, QLineF
 from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform, QPainter, \
-            QPixmap, QIcon, QTransform 
+            QPixmap, QIcon, QTransform, QPainterPath  
 from PyQt5.QtWidgets import QApplication, QColorDialog, QDialog, \
     QMainWindow, QDockWidget, QListWidgetItem, QUndoCommand, \
-    QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem
+    QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem, QGraphicsPathItem
 from datetime import datetime as datim
 import numpy as np
 import h5py
@@ -108,7 +108,7 @@ class Annotation(object):
     class that contains the data of an annotation, graph item is kept in Annotation manage, they have the same timestamp
     """
 
-    def __init__(self, timestamp, dataObject, type):
+    def __init__(self, timestamp, dataObject, type, **kwargs):
         self.type = type
         self.timestamp = timestamp
         self.dataObject = dataObject
@@ -195,7 +195,7 @@ class Annotation(object):
         pass
 
     @classmethod
-    def load(cls, location, attr_group):
+    def load(cls, location, attr_group, **kwargs):
         """
         load data from a hdf5 group and return an Annotation object
         Args:
@@ -206,7 +206,7 @@ class Annotation(object):
         timestamp = location.attrs['timestamp']
         type = location.attrs['type']
         dataObject = cls._load_annotation(location)
-        annotation = cls(timestamp, dataObject, type)
+        annotation = cls(timestamp, dataObject, type, **kwargs)
 
         if 'labels' in location.keys():
             for attr_name in location['labels'].keys():
@@ -215,14 +215,14 @@ class Annotation(object):
         return annotation
 
     @abstractmethod
-    def graphObject(self):
+    def _graphObject(self):
         """
         an method to return the graph object,
         notice that graphObject and dataObject may be different in some cases
         in that case the method should be overwritten
         :return: graphObject
         """
-        return self.dataObject
+        pass
 
     def tooltip(self):
         tooltip = '<p><b>Labels:</b></p>'
@@ -230,34 +230,39 @@ class Annotation(object):
             tooltip = tooltip + '<p>' + label.attr_name + ': ' + label.label_name + '</p>'
         return tooltip
 
-    def appearance(self, display_attr = None):
-        if isinstance(display_attr, str):
-            for label in self.labels:
-                if display_attr == label.attr_name:
-                    c = label.color
-                    linePen = QPen(QColor(c[0], c[1], c[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-                    areaBrush = QBrush(QColor(c[0], c[1], c[2], 70))
-                    return linePen, areaBrush
-            linePen = QPen(QColor(0, 0, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            areaBrush = QBrush(QColor(0, 0, 0, 70))
-        elif display_attr == 1:
-            linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            areaBrush = QBrush(QColor(0, 200, 0, 70))
-        else:
-            linePen = QPen(QColor(0, 0, 0, 0), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            areaBrush = QBrush(QColor(0, 0, 0, 0))
-        return linePen, areaBrush
+    # def appearance(self, display_attr=None):
+    #     if isinstance(display_attr, str):
+    #         for label in self.labels:
+    #             if display_attr == label.attr_name:
+    #                 c = label.color
+    #                 linePen = QPen(QColor(c[0], c[1], c[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    #                 areaBrush = QBrush(QColor(c[0], c[1], c[2], 70))
+    #                 return linePen, areaBrush
+    #         linePen = QPen(QColor(0, 0, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    #         areaBrush = QBrush(QColor(0, 0, 0, 70))
+    #     elif display_attr == 1:
+    #         linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    #         areaBrush = QBrush(QColor(0, 200, 0, 70))
+    #     else:
+    #         linePen = QPen(QColor(0, 0, 0, 0), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    #         areaBrush = QBrush(QColor(0, 0, 0, 0))
+        
+    #     if self.type == LINE:
+    #         linePen.setWidth(2)
+    #         areaBrush = QBrush(QColor(0, 200, 0, 0))
+
+    #     return linePen, areaBrush
 
 class PointAnnotation(Annotation):
 
-    def __init__(self, timestamp, pt, type=POINT):
+    def __init__(self, timestamp, pt, type=POINT, size=5):
         """
         constructor of PointAnnotation
         Args:
             timestamp: time stamp
             polygon: a QPolygonF object
         """
-        self.size = 5
+        self.size = size
         super().__init__(timestamp, pt, type)
 
     def save_dataObject(self, location):
@@ -297,6 +302,72 @@ class PointAnnotation(Annotation):
 
         return ellipse
 
+class LineAnnotation(Annotation):
+
+    def __init__(self, timestamp, line, type=LINE):
+        """
+        constructor of LineAnnotation
+        Args:
+            timestamp: time stamp
+            line: a nx2 numpy containing coordinated of the line
+        """
+        super().__init__(timestamp, line, type)
+
+    def save_dataObject(self, location):
+        """
+        implementation of a abstract method
+        Args:
+            location: hdf5 group of a certain annotation (named as timestamp),
+                in which all information about an annotation is saved
+
+        Returns: none
+        """
+        if 'boundingBox' not in location.keys():
+            # print('saved', self._get_boundingBox())
+            bbx = self._get_boundingBox()
+            location.create_dataset('boundingBox', shape=(4,), data=bbx)
+
+        if 'line' not in location.keys():
+            pts = np.stack([self.dataObject[:,0]-bbx[0], self.dataObject[:,1]-bbx[1]], axis=1)
+            location.create_dataset('line', shape=self.dataObject.shape, data=pts)
+
+
+
+    @classmethod
+    def _load_annotation(cls, location):
+        """
+        implementation of an abstract function
+        from data in hdf5 file, regenerate a dataObject
+        Args:
+            location: a hdf5 group corresponding to an annotation, named as timestamp
+        Returns: a dataObject
+        """
+        try:
+            bbx = location['boundingBox']
+            line = np.stack([location['line'][:,0]+bbx[0], location['line'][:,1]+bbx[1]], axis=1)
+            return line
+        except Exception as e:
+            print('An exception occurred while loading a line: ', e)
+
+    def _graphObject(self):
+        line = QPolygonF([QPointF(self.dataObject[i, 0], self.dataObject[i, 1]) for i in range(self.dataObject.shape[0])])
+        path = QPainterPath()
+        path.addPolygon(line)
+        self.graphObject = QGraphicsPathItem(path)
+        return self.graphObject
+
+    def _get_boundingBox(self):
+        """
+        get the bounding box of a polygon
+        Returns: a numpy arrary [x, y, width, height]
+        """
+        originalRect = QRectF(self.graphObject.boundingRect())
+        bbx = np.zeros((4,))
+        bbx[0] = originalRect.x()
+        bbx[1] = originalRect.y()
+        bbx[2] = originalRect.width()
+        bbx[3] = originalRect.height()
+        return bbx
 
 class PolygonAnnotation(Annotation):
 
@@ -532,7 +603,9 @@ class AnnotationManager(object):
         elif type == OVAL:
             annotation = OVALAnnotation(timestamp, dataObject)
         elif type == POINT:
-            annotation = PointAnnotation(timestamp, dataObject)
+            annotation = PointAnnotation(timestamp, dataObject, size=self.config["DotAnnotationRadius"])
+        elif type == LINE:
+            annotation = LineAnnotation(timestamp, dataObject)
         else:
             print("Unknown annotation type")
 
@@ -543,7 +616,7 @@ class AnnotationManager(object):
 
         type = annotation.type
         if self.scene:
-            pen, brush = annotation.appearance(display_attr)
+            pen, brush = self.appearance(annotation, display_attr)
             annotation.graphObject.setPen(pen)
             annotation.graphObject.setBrush(brush)
             self.scene.addItem(annotation.graphObject)
@@ -749,9 +822,34 @@ class AnnotationManager(object):
         elif type == OVAL:
             return OVALAnnotation.load(location, attr_group)
         elif type == POINT:
-            return PointAnnotation.load(location, attr_group)
+            return PointAnnotation.load(location, attr_group, size=self.config["DotAnnotationRadius"])
+        elif type == LINE:
+            return LineAnnotation.load(location, attr_group)
         else:
             print("Unknown annotation type")
+
+    def appearance(self, anno, display_attr=None):
+        if isinstance(display_attr, str):
+            for label in anno.labels:
+                if display_attr == label.attr_name:
+                    c = label.color
+                    linePen = QPen(QColor(c[0], c[1], c[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+                    areaBrush = QBrush(QColor(c[0], c[1], c[2], 70))
+                    return linePen, areaBrush
+            linePen = QPen(QColor(0, 0, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            areaBrush = QBrush(QColor(0, 0, 0, 70))
+        elif display_attr == 1:
+            linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            areaBrush = QBrush(QColor(0, 200, 0, 70))
+        else:
+            linePen = QPen(QColor(0, 0, 0, 0), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            areaBrush = QBrush(QColor(0, 0, 0, 0))
+        
+        if anno.type == LINE:
+            linePen.setWidth(int(self.config['lineAnnotationWidth']))
+            areaBrush = QBrush(QColor(0, 200, 0, 0))
+
+        return linePen, areaBrush
 
 
     # def editAnnotation(self, polygonItem):

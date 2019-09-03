@@ -1,7 +1,7 @@
 # from PyQt5.QtGui import *
 from PyQt5 import QtCore
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent, QGraphicsPathItem
 from PyQt5.QtGui import QImage, QPixmap, QTransform
 import numpy as np
 
@@ -21,8 +21,9 @@ class Scene(QGraphicsScene):
     polygonPainter = 1
     circlePainter = 2
 
-    def __init__(self, parent=None):
+    def __init__(self, config, parent=None):
         super().__init__(parent=parent)
+        self.config = config
         # background image
         self.bgImage = QImage('icons/startscreen.png')
         self.bgPixmap = self.addPixmap(QPixmap.fromImage(self.bgImage))
@@ -104,7 +105,7 @@ class Scene(QGraphicsScene):
 
     def update_display_channel(self):
         for timestamp in self.annotationMgr.annotations.keys():
-            pen, brush = self.annotationMgr.annotations[timestamp].appearance(self.display_attr)
+            pen, brush = self.annotationMgr.appearance(self.annotationMgr.annotations[timestamp], self.display_attr)
             self.annotationMgr.annotations[timestamp].graphObject.setPen(pen)
             self.annotationMgr.annotations[timestamp].graphObject.setBrush(brush)
         self.highlight_items(self.selectedItems)
@@ -133,14 +134,20 @@ class Scene(QGraphicsScene):
             d1, d2 = 1, 100
         elif mode == "restore":
             d1, d2 = -1, -100
+        
         pen = item.pen()
         if pen:
             pen.setWidth(pen.width() + d1)
             item.setPen(pen)
+
         brush = item.brush()
         if brush:
+            
             color = brush.color()
-            color.setAlpha(color.alpha() + d2)
+            if isinstance(item, QGraphicsPathItem):
+                color.setAlpha(0)
+            else:    
+                color.setAlpha(color.alpha() + d2)
             brush.setColor(color)
             # brush.setStyle(Qt.SolidPattern)
             item.setBrush(brush)
@@ -151,7 +158,7 @@ class Scene(QGraphicsScene):
 
 
     def cancel_operation(self):
-        if self.operation == POLYGON or self.operation == BBX or self.operation == OVAL:
+        if self.operation == POLYGON or self.operation == BBX or self.operation == OVAL or self.operation == LINE:
             if self.drawing:
                 self.drawing = False
                 self.currentCommand.cancel()
@@ -195,8 +202,15 @@ class Scene(QGraphicsScene):
                     self.currentCommand = OvalPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
             elif self.operation == POINT:
-                self.currentCommand = PointPainter(self, self.annotationMgr, self.clickPos)
+                self.currentCommand = PointPainter(self, self.annotationMgr, self.clickPos, self.config['DotAnnotationRadius'])
                 self.currentCommand.finish()
+            elif self.operation == LINE:
+                if self.drawing:
+                    self.currentCommand.finish()
+                    self.drawing = False
+                else:
+                    self.currentCommand = LinePainter(self, self.annotationMgr, self.clickPos)
+                    self.drawing = True
             if self.operation == BROWSE:
                 pass
 
@@ -212,6 +226,8 @@ class Scene(QGraphicsScene):
     def mouseMoveEvent(self, event):
         assert isinstance(event, QGraphicsSceneMouseEvent)
         if self.operation == POLYGON and self.drawing:
+            self.currentCommand.mouseMoveEvent(event)
+        if self.operation == LINE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
         elif self.operation == BBX and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
