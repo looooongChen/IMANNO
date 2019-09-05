@@ -123,6 +123,13 @@
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QCheckBox" name="single_pixel">
+       <property name="text">
+        <string>thin skeleton to single-pixel</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>

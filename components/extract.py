@@ -292,8 +292,10 @@ class AnnoExporter(QDialog):
         self.ui.padding.setEnabled(False)
         self.ui.ignore_empty.setEnabled(True)
         self.ui.copy_image.setEnabled(True)
+        self.ui.single_pixel.setEnabled(False)
         self.ui.ignore_empty.setCheckState(Qt.Checked)
         self.ui.copy_image.setCheckState(Qt.Unchecked)
+        self.ui.single_pixel.setCheckState(Qt.Unchecked)
         if text == TP_PATCH:
             self.ui.padding.setEnabled(True)
             self.ui.ignore_empty.setCheckState(Qt.Checked)
@@ -302,6 +304,8 @@ class AnnoExporter(QDialog):
             self.ui.copy_image.setEnabled(False)
         elif text == TP_BBX:
             self.ui.property.setEnabled(True)
+        elif text == TP_SKELETON:
+            self.ui.single_pixel.setEnabled(True)
 
     def extract(self):
         self.ui.progress.setValue(0)
@@ -339,7 +343,7 @@ class AnnoExporter(QDialog):
                 print("Unsupported output type")
 
             image_index += 1
-            if int(image_index*100/total) - self.ui.progress.value() >= 1:
+            if int(image_index*100/total) - self.ui.progress.value() >= 3:
                 self.ui.progress.setValue(int(image_index*100/total))
         self.ui.progress.setValue(100)    
     
@@ -554,6 +558,9 @@ class AnnoExporter(QDialog):
                             if zeros==size:
                                 done = True
 
+                        if self.ui.single_pixel.checkState() == Qt.Checked:
+                            skel = thinning(skel)
+
                         skel = (skel>0).astype(np.uint8)
                         skeleton = np.where(skel > 0, index*skel, skeleton)
                         
@@ -567,6 +574,31 @@ class AnnoExporter(QDialog):
                 if self.ui.copy_image.checkState() == Qt.Checked:
                     shutil.copy(img_path, self.dest_dir)
 
+
+def thinning(skeleton):
+    # print(skeleton.shape, skeleton.dtype)
+    skeleton = (skeleton > 0).astype(np.uint8)
+    kernels = []
+    K1 = np.array(([-1, -1, -1], [0, 1, 0], [1, 1, 1]), dtype="int")
+    K2 = np.array(([0, -1, -1], [1, 1, -1], [0, 1, 0]), dtype="int")
+    kernels.append(K1)
+    kernels.append(K2)
+    kernels.append(np.rot90(K1, k=1))
+    kernels.append(np.rot90(K2, k=1))
+    kernels.append(np.rot90(K1, k=2))
+    kernels.append(np.rot90(K2, k=2))
+    kernels.append(np.rot90(K1, k=3))
+    kernels.append(np.rot90(K2, k=3))
+
+    done = False
+    while not done:
+        new = np.copy(skeleton)
+        for k in kernels:
+            new = new - cv2.morphologyEx(new, cv2.MORPH_HITMISS, k)
+        done = np.array_equal(new, skeleton)
+        skeleton = new
+    
+    return skeleton
 
 def save_mask_as_png(save_dir, fname, masks):
 
