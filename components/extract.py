@@ -324,6 +324,11 @@ class AnnoExporter(QDialog):
                 continue
             if os.path.exists(filename + '.hdf5'):
                 samples[path] = filename + '.hdf5'
+
+        if not os.path.exists(os.path.join(self.dest_dir, 'ground_truth')):
+            os.makedirs(os.path.join(self.dest_dir, 'ground_truth'))
+        if self.ui.copy_image.checkState() == Qt.Checked and not os.path.exists(os.path.join(self.dest_dir, 'image')):
+            os.makedirs(os.path.join(self.dest_dir, 'image'))
         
         image_index = 1
         total = len(samples)
@@ -404,12 +409,12 @@ class AnnoExporter(QDialog):
                 fname = os.path.splitext(os.path.basename(img_path))[0]
                 if save_as_one:
                     mask = mask.astype(np.uint8) if index <= 255 else mask
-                    save_mask_as_png(self.dest_dir, fname, mask)
+                    save_mask_as_png(os.path.join(self.dest_dir, 'ground_truth'), fname, mask)
                 else:
-                    save_mask_as_png(self.dest_dir, fname, masks)
+                    save_mask_as_png(os.path.join(self.dest_dir, 'ground_truth'), fname, masks)
 
                 if self.ui.copy_image.checkState() == Qt.Checked:
-                    shutil.copy(img_path, self.dest_dir)
+                    shutil.copy(img_path, os.path.join(self.dest_dir, 'image'))
 
     def export_bbx(self, hdf5_path, img_path):
         annoList = []
@@ -447,11 +452,11 @@ class AnnoExporter(QDialog):
                     annoList.append({'name': label_name, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
 
             fname = os.path.splitext(os.path.basename(img_path))[0]
-            save_path = os.path.join(self.dest_dir, fname+'.xml')
+            save_path = os.path.join(os.path.join(self.dest_dir, 'ground_truth'), fname+'.xml')
             createXml(annoList, img_path, save_path)
 
             if self.ui.copy_image.checkState() == Qt.Checked:
-                shutil.copy(img_path, self.dest_dir)
+                shutil.copy(img_path, os.path.join(self.dest_dir, 'image'))
 
 
     def extract_patch(self, hdf5_path, img_path):
@@ -501,9 +506,9 @@ class AnnoExporter(QDialog):
                             cv2.fillPoly(mask_patch, pts.astype(np.int32), 255)
                         
                         fname = os.path.splitext(os.path.basename(img_path))[0]
-                        cv2.imwrite(os.path.join(self.dest_dir, fname+"_patch_"+str(patch_index)+".png"), image_patch)
+                        cv2.imwrite(os.path.join(os.path.join(self.dest_dir, 'image'), fname+"_patch_"+str(patch_index)+".png"), image_patch)
                         if mask_patch is not None:
-                            cv2.imwrite(os.path.join(self.dest_dir, fname+"_mask_"+str(patch_index)+".png"), mask_patch)
+                            cv2.imwrite(os.path.join(os.path.join(self.dest_dir, 'ground_truth'), fname+"_mask_"+str(patch_index)+".png"), mask_patch)
                         patch_index += 1
 
 
@@ -547,6 +552,8 @@ class AnnoExporter(QDialog):
                         else:
                             skel = sekeleton_erosion(mask)
 
+                        # skel = remove_islolated_pixels(skel)
+
                         skel = (skel>0).astype(np.uint8)
                         skeleton = np.where(skel > 0, index*skel, skeleton)
                         
@@ -555,10 +562,10 @@ class AnnoExporter(QDialog):
                     skeleton = skeleton.astype(np.uint8) 
 
                 fname = os.path.splitext(os.path.basename(img_path))[0]
-                save_mask_as_png(self.dest_dir, fname, skeleton)
+                save_mask_as_png(os.path.join(self.dest_dir, 'ground_truth'), fname, skeleton)
 
                 if self.ui.copy_image.checkState() == Qt.Checked:
-                    shutil.copy(img_path, self.dest_dir)
+                    shutil.copy(img_path, os.path.join(self.dest_dir, 'image'))
 
 
 def thinning(mask):
@@ -617,7 +624,7 @@ def save_mask_as_png(save_dir, fname, masks):
         for index, mask in enumerate(masks, 1):
             cv2.imwrite(os.path.join(obj_dir, 'obj_'+str(index)+".png"), mask)
     else:
-        cv2.imwrite(os.path.join(save_dir, fname+"_mask.png"), masks)
+        cv2.imwrite(os.path.join(save_dir, fname+".png"), masks)
 
 def createXml(AnnoList, img_path, save_name):
     """
