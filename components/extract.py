@@ -540,26 +540,12 @@ class AnnoExporter(QDialog):
                         pts = np.expand_dims(pts, 0)
                         mask = mask * 0
                         cv2.fillPoly(mask, pts.astype(np.int32), 255)
-                        
-                        size = np.size(mask)
-                        skel = np.zeros((image.shape[0], image.shape[1]), np.uint8)
-                        _, mask = cv2.threshold(mask,127,255,cv2.THRESH_BINARY)
-                        element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
-                        done = False
-                        
-                        while( not done):
-                            eroded = cv2.erode(mask,element)
-                            temp = cv2.dilate(eroded,element)
-                            temp = cv2.subtract(mask,temp)
-                            skel = np.bitwise_or(skel,temp)
-                            mask = eroded.copy()
-                        
-                            zeros = size - cv2.countNonZero(mask)
-                            if zeros==size:
-                                done = True
 
                         if self.ui.single_pixel.checkState() == Qt.Checked:
+                            skel = sekeleton_erosion(mask)
                             skel = thinning(skel)
+                        else:
+                            skel = sekeleton_erosion(mask)
 
                         skel = (skel>0).astype(np.uint8)
                         skeleton = np.where(skel > 0, index*skel, skeleton)
@@ -575,9 +561,9 @@ class AnnoExporter(QDialog):
                     shutil.copy(img_path, self.dest_dir)
 
 
-def thinning(skeleton):
+def thinning(mask):
     # print(skeleton.shape, skeleton.dtype)
-    skeleton = (skeleton > 0).astype(np.uint8)
+    mask = (mask > 0).astype(np.uint8)
     kernels = []
     K1 = np.array(([-1, -1, -1], [0, 1, 0], [1, 1, 1]), dtype="int")
     K2 = np.array(([0, -1, -1], [1, 1, -1], [0, 1, 0]), dtype="int")
@@ -592,13 +578,35 @@ def thinning(skeleton):
 
     done = False
     while not done:
-        new = np.copy(skeleton)
+        new = np.copy(mask)
         for k in kernels:
             new = new - cv2.morphologyEx(new, cv2.MORPH_HITMISS, k)
-        done = np.array_equal(new, skeleton)
-        skeleton = new
+        done = np.array_equal(new, mask)
+        mask = new
     
-    return skeleton
+    return mask
+
+def sekeleton_erosion(mask):
+
+    size = np.size(mask)
+    skel = np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
+    _, mask = cv2.threshold(mask,127,255,cv2.THRESH_BINARY)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
+    done = False
+    
+    while( not done):
+        eroded = cv2.erode(mask,element)
+        temp = cv2.dilate(eroded,element)
+        temp = cv2.subtract(mask,temp)
+        skel = np.bitwise_or(skel,temp)
+        mask = eroded.copy()
+    
+        zeros = size - cv2.countNonZero(mask)
+        if zeros==size:
+            done = True
+    
+    return skel
+
 
 def save_mask_as_png(save_dir, fname, masks):
 
