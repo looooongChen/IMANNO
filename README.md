@@ -73,8 +73,8 @@ Data structure
 - boundingBox(4,): x, y, w, h  
 - polygon(N,2): coordinates  
 - center(2,): image coordinate x-right y-down  
-- angle(1,): 0 angle - right  
-- axis(2,): main axis lenght, side axis length  
+- angle(1,): 0 angle - right  (in degree)
+- (2,): main axis length, side axis length  
 - pt(2,): x, y  
 
 #### export annotation as other formats

@@ -531,6 +531,7 @@ class OVALAnnotation(Annotation):
             paras['center'] = location['center'].value
             paras['angle'] = location['angle'].value
             paras['axis'] = location['axis'].value
+            # print(paras['center'],paras['angle'],paras['axis'])
             return paras
         except Exception as e:
             print('An exception occurred while loading a ellipse: ', e)
