@@ -11,6 +11,7 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 - opencv = 3.4 
 - pyqt = 5.9
 - h5py = 2.8
+- Pillow
 
 optional:
 - pyinstaller
