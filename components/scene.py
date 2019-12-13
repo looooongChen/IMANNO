@@ -79,9 +79,9 @@ class Scene(QGraphicsScene):
         image = np.squeeze(image)
         if len(image.shape) == 3:
             imdat = 255 << 24 | \
-                    image[:, :, 2].astype(np.uint32) << 16 | \
+                    image[:, :, 0].astype(np.uint32) << 16 | \
                     image[:, :, 1].astype(np.uint32) << 8 | \
-                    image[:, :, 0].astype(np.uint32)
+                    image[:, :, 2].astype(np.uint32)
         else:
             imdat = 255 << 24 | \
                     image.astype(np.uint32) << 16 | \

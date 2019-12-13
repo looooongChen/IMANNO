@@ -11,7 +11,6 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 - opencv = 3.4 
 - pyqt = 5.9
 - h5py = 2.8
-- Pillow
 
 optional:
 - pyinstaller
@@ -74,8 +73,8 @@ Data structure
 - boundingBox(4,): x, y, w, h  
 - polygon(N,2): coordinates  
 - center(2,): image coordinate x-right y-down  
-- angle(1,): 0 angle - right  (in degree)
-- (2,): main axis length, side axis length  
+- angle(1,): 0 angle - right  
+- axis(2,): main axis lenght, side axis length  
 - pt(2,): x, y  
 
 #### export annotation as other formats
@@ -106,3 +105,6 @@ pyinstaller main.py
 ```
 - copy ./config ./icons ./uis to the directory of your executable (which contains main.exe)
 - copy platform directory to the directory of your executable. You'll find the platform directory at a location like c:\Users\<username>\envs\<environmentname>\Library\plugins\platforms
+
+## releases:
+- 12.12.2019: support for bmp images; fix line annotation bug; noisy annotation clean based on area

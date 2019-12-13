@@ -130,9 +130,9 @@ class LinePainter(BaseToolClass):
             vptr.setsize(8*2*self.line.size())
             # compute a approximation of the original polygon
             poly = np.ndarray(shape=(self.line.size(), 2), dtype=np.float64, buffer=vptr)
-            poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
+            poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, False))
             # display message
-            print("Line finished: ", self.pathItem.boundingRect(), poly.shape[0], poly_appx.shape[0])
+            print("Line finished: ", self.pathItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
             print("Pass the line to annotationMgr")
             self.scene.removeItem(self.pathItem)
             self.annotationMgr.new_annotation(LINE, poly_appx)
@@ -179,7 +179,7 @@ class PolygonPainter(BaseToolClass):
             poly = np.ndarray(shape=(self.polygon.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
             # display message
-            print("Polygon finished: ", self.polygonItem.boundingRect(), poly.shape[0], poly_appx.shape[0])
+            print("Polygon finished: ", self.polygonItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
             print("Pass the polygon to annotationMgr")
             self.scene.removeItem(self.polygonItem)
             self.annotationMgr.new_annotation(POLYGON, poly_appx)

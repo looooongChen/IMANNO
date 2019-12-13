@@ -7,7 +7,6 @@ import cv2
 from .graphDef import *
 import numpy as np
 import shutil
-from PIL import Image
 IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']
 
 # class PatchExtractor(QDialog):
@@ -252,7 +251,7 @@ TP_MASK_SINGLE = "mask, single (.png, all objects in one image, may overlap)"
 TP_MASK_MULTI = "mask, multiple (.png, one mask for each object)"
 TP_BBX = "boundingbox (.xml, PASCAL VOC format)"
 TP_PATCH = "patches (.png)"
-# TP_SKELETON = "skeleton (.png)"
+TP_SKELETON = "skeleton (.png)"
 
 class AnnoExporter(QDialog):
     def __init__(self, parent=None):
@@ -268,7 +267,7 @@ class AnnoExporter(QDialog):
         self.ui.type.addItem(TP_MASK_MULTI)
         self.ui.type.addItem(TP_BBX)
         self.ui.type.addItem(TP_PATCH)
-        # self.ui.type.addItem(TP_SKELETON)
+        self.ui.type.addItem(TP_SKELETON)
 
         # self.ui.property.setEnabled(False)
         # self.ui.padding.setEnabled(False)
@@ -293,8 +292,10 @@ class AnnoExporter(QDialog):
         self.ui.padding.setEnabled(False)
         self.ui.ignore_empty.setEnabled(True)
         self.ui.copy_image.setEnabled(True)
+        self.ui.single_pixel.setEnabled(False)
         self.ui.ignore_empty.setCheckState(Qt.Checked)
         self.ui.copy_image.setCheckState(Qt.Unchecked)
+        self.ui.single_pixel.setCheckState(Qt.Unchecked)
         if text == TP_PATCH:
             self.ui.padding.setEnabled(True)
             self.ui.ignore_empty.setCheckState(Qt.Checked)
@@ -303,6 +304,8 @@ class AnnoExporter(QDialog):
             self.ui.copy_image.setEnabled(False)
         elif text == TP_BBX:
             self.ui.property.setEnabled(True)
+        elif text == TP_SKELETON:
+            self.ui.single_pixel.setEnabled(True)
 
     def extract(self):
         self.ui.progress.setValue(0)
@@ -339,8 +342,8 @@ class AnnoExporter(QDialog):
                 self.export_bbx(hdf5_path, img_path)
             elif type == TP_PATCH:
                 self.extract_patch(hdf5_path, img_path)
-            # elif type == TP_SKELETON:
-            #     self.export_skeleton(hdf5_path, img_path)
+            elif type == TP_SKELETON:
+                self.export_skeleton(hdf5_path, img_path)
             else:
                 print("Unsupported output type")
 
@@ -415,7 +418,7 @@ class AnnoExporter(QDialog):
 
     def export_bbx(self, hdf5_path, img_path):
         annoList = []
-        supported_type = [POLYGON, BBX, OVAL]
+        supported_type = [POLYGON, BBX]
 
         with h5py.File(hdf5_path) as location:
             
@@ -444,19 +447,9 @@ class AnnoExporter(QDialog):
                     if type not in supported_type:
                         print("Only" + str(supported_type) + " are supported.")
                         continue
-                    if type == OVAL:
-                        c = anno['center'].value
-                        angle = anno['angle'].value
-                        axis = anno['axis'].value/2
-                        x_offset = np.sqrt( (axis[0]*np.cos(angle*np.pi/180))**2 + (axis[1]*np.sin(angle*np.pi/180))**2 )
-                        y_offset = np.sqrt( (axis[0]*np.sin(angle*np.pi/180))**2 + (axis[1]*np.cos(angle*np.pi/180))**2 )
-                        print(c,angle,axis)
-                        im = Image.open(img_path)
-                        w, h = im.size
-                        annoList.append({'name': label_name, 'bndbox': (max(c[0]-x_offset, 1), max(c[1]-y_offset, 1), min(c[0]+x_offset, w), min(c[1]+y_offset, h))})
-                    else:
-                        bbx = anno['boundingBox']
-                        annoList.append({'name': label_name, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
+
+                    bbx = anno['boundingBox']
+                    annoList.append({'name': label_name, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
 
             fname = os.path.splitext(os.path.basename(img_path))[0]
             save_path = os.path.join(os.path.join(self.dest_dir, 'ground_truth'), fname+'.xml')
@@ -519,55 +512,107 @@ class AnnoExporter(QDialog):
                         patch_index += 1
 
 
-    # def export_skeleton(self, hdf5_path, img_path):
+    def export_skeleton(self, hdf5_path, img_path):
 
-    #         supported_type = [POLYGON]
+            supported_type = [POLYGON]
 
-    #         with h5py.File(hdf5_path) as location:
+            with h5py.File(hdf5_path) as location:
                 
-    #             if self.ui.ignore_empty.checkState() == Qt.Checked and self.is_empty(location, supported_type):
-    #                 print("Skip empty image: " + img_path)
-    #                 return
-    #             else:
-    #                 image = cv2.imread(img_path)
-    #                 print("Process: " + img_path)
+                if self.ui.ignore_empty.checkState() == Qt.Checked and self.is_empty(location, supported_type):
+                    print("Skip empty image: " + img_path)
+                    return
+                else:
+                    image = cv2.imread(img_path)
+                    print("Process: " + img_path)
 
-    #             mask = np.zeros((image.shape[0], image.shape[1]), np.uint16)
-    #             skeleton = np.zeros((image.shape[0], image.shape[1]), np.uint16)
+                mask = np.zeros((image.shape[0], image.shape[1]), np.uint16)
+                skeleton = np.zeros((image.shape[0], image.shape[1]), np.uint16)
 
-    #             if 'annotations' in location.keys():
-    #                 index = 1
-    #                 for timestamp in location['annotations']:
-    #                     anno = location['annotations'][timestamp]
+                if 'annotations' in location.keys():
+                    index = 1
+                    for timestamp in location['annotations']:
+                        anno = location['annotations'][timestamp]
 
-    #                     type = anno.attrs['type']
-    #                     if type not in supported_type:
-    #                         print("Only" + str(supported_type) + " are supported.")
-    #                         continue
+                        type = anno.attrs['type']
+                        if type not in supported_type:
+                            print("Only" + str(supported_type) + " are supported.")
+                            continue
 
-    #                     # if len(anno['polygon'][:,0]) < 5:
-    #                     #     continue
-    #                     bbx = anno['boundingBox']
-    #                     pts = np.stack([anno['polygon'][:,0]+bbx[0], anno['polygon'][:,1]+bbx[1]], axis=1)
-    #                     pts = np.expand_dims(pts, 0)
-    #                     mask = mask * 0
-    #                     cv2.fillPoly(mask, pts.astype(np.int32), 255)
+                        # if len(anno['polygon'][:,0]) < 5:
+                        #     continue
+                        bbx = anno['boundingBox']
+                        pts = np.stack([anno['polygon'][:,0]+bbx[0], anno['polygon'][:,1]+bbx[1]], axis=1)
+                        pts = np.expand_dims(pts, 0)
+                        mask = mask * 0
+                        cv2.fillPoly(mask, pts.astype(np.int32), 255)
 
-    #                     from skimage.morphology import skeletonize
-    #                     skel = skeletonize(mask>0)
+                        if self.ui.single_pixel.checkState() == Qt.Checked:
+                            skel = sekeleton_erosion(mask)
+                            skel = thinning(skel)
+                        else:
+                            skel = sekeleton_erosion(mask)
 
-    #                     skel = (skel>0).astype(np.uint8)
-    #                     skeleton = np.where(skel > 0, index*skel, skeleton)
+                        # skel = remove_islolated_pixels(skel)
+
+                        skel = (skel>0).astype(np.uint8)
+                        skeleton = np.where(skel > 0, index*skel, skeleton)
                         
-    #                     index += 1
+                        index += 1
 
-    #                 skeleton = skeleton.astype(np.uint8) 
+                    skeleton = skeleton.astype(np.uint8) 
 
-    #             fname = os.path.splitext(os.path.basename(img_path))[0]
-    #             save_mask_as_png(os.path.join(self.dest_dir, 'ground_truth'), fname, skeleton)
+                fname = os.path.splitext(os.path.basename(img_path))[0]
+                save_mask_as_png(os.path.join(self.dest_dir, 'ground_truth'), fname, skeleton)
 
-    #             if self.ui.copy_image.checkState() == Qt.Checked:
-    #                 shutil.copy(img_path, os.path.join(self.dest_dir, 'image'))
+                if self.ui.copy_image.checkState() == Qt.Checked:
+                    shutil.copy(img_path, os.path.join(self.dest_dir, 'image'))
+
+
+def thinning(mask):
+    # print(skeleton.shape, skeleton.dtype)
+    mask = (mask > 0).astype(np.uint8)
+    kernels = []
+    K1 = np.array(([-1, -1, -1], [0, 1, 0], [1, 1, 1]), dtype="int")
+    K2 = np.array(([0, -1, -1], [1, 1, -1], [0, 1, 0]), dtype="int")
+    kernels.append(K1)
+    kernels.append(K2)
+    kernels.append(np.rot90(K1, k=1))
+    kernels.append(np.rot90(K2, k=1))
+    kernels.append(np.rot90(K1, k=2))
+    kernels.append(np.rot90(K2, k=2))
+    kernels.append(np.rot90(K1, k=3))
+    kernels.append(np.rot90(K2, k=3))
+
+    done = False
+    while not done:
+        new = np.copy(mask)
+        for k in kernels:
+            new = new - cv2.morphologyEx(new, cv2.MORPH_HITMISS, k)
+        done = np.array_equal(new, mask)
+        mask = new
+    
+    return mask
+
+def sekeleton_erosion(mask):
+
+    size = np.size(mask)
+    skel = np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
+    _, mask = cv2.threshold(mask,127,255,cv2.THRESH_BINARY)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
+    done = False
+    
+    while( not done):
+        eroded = cv2.erode(mask,element)
+        temp = cv2.dilate(eroded,element)
+        temp = cv2.subtract(mask,temp)
+        skel = np.bitwise_or(skel,temp)
+        mask = eroded.copy()
+    
+        zeros = size - cv2.countNonZero(mask)
+        if zeros==size:
+            done = True
+    
+    return skel
 
 
 def save_mask_as_png(save_dir, fname, masks):

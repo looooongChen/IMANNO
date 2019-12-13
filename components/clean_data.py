@@ -65,7 +65,8 @@ class AnnotationCleaner(QDialog):
         
         type = anno.attrs['type']
         if type == POLYGON:
-            return True if len(anno['polygon'][:,0]) < 5 else False
+            area = cv2.contourArea(anno['polygon'][:,0:2].astype(np.float32))
+            return True if area < 10 else False
         elif type == BBX:
             bbx = anno['boundingBox']
             return True if bbx[2]<5 or bbx[3]<5 else False

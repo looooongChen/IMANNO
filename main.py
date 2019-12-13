@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QSizePolicy, QWidget,
     QPushButton, QFileDialog, QMessageBox, QShortcut
 from PyQt5.QtGui import QFont, QImage, QKeySequence
 from PyQt5 import QtCore
+from PIL import Image
 import json
 import cv2
 
@@ -30,7 +31,7 @@ __author__ = 'long, bug'
 
 ZOOM_IN_RATE = 1.2
 ZOOM_OUT_RATE = 1/ZOOM_IN_RATE
-IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']
+IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png', 'bmp']
 
 
 
@@ -372,7 +373,8 @@ class MainWindow(QMainWindow):
 
         # read image
         self.auto_contrast = False
-        self.image = cv2.imread(self.currentImageFile, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+        # self.image = cv2.imread(self.currentImageFile, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+        self.image = np.asarray(Image.open(self.currentImageFile))
         ii = np.iinfo(self.image.dtype)
         self.image = self.image.astype(np.float)
         self.image = 255*(self.image - ii.min)/(ii.max-ii.min)
