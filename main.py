@@ -540,6 +540,9 @@ class MainWindow(QMainWindow):
 
         imgs = []
         for file in os.listdir(directory):
+            file_path = os.path.join(directory, file)
+            if not os.path.isfile(file_path):
+                continue
             ext = file.split(".")[-1]
             if ext.lower() in IMAGE_FORMATS:
                 imgs.append(file)
