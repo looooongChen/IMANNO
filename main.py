@@ -165,6 +165,7 @@ class MainWindow(QMainWindow):
         menu = mBar.addMenu('Mode')
         menu.addAction('Browse', lambda :self.scene.set_tool(BROWSE))
         menu.addAction('Polygon', lambda :self.scene.set_tool(POLYGON), 'P')
+        menu.addAction('Smart Polygon', lambda :self.scene.set_tool(SMARTPOLYGON), 'S')
         menu.addAction('Ellipse', lambda :self.scene.set_tool(OVAL), 'E')
         menu.addAction('Bounding Box', lambda :self.scene.set_tool(BBX), 'B')
         menu.addAction('Line', lambda :self.scene.set_tool(LINE), 'L')
@@ -256,6 +257,11 @@ class MainWindow(QMainWindow):
         # btnPoly.setShortcut('P')
         btnPoly.clicked.connect(lambda : self.scene.set_tool(POLYGON))
 
+        btnSmart = QPushButton(QIcon('icons/polygon.png'), 'Smart Poly', self)
+        btnSmart.setToolTip('(S) draw an annotation polygon in smart mode')
+        # btnPoly.setShortcut('P')
+        btnSmart.clicked.connect(lambda : self.scene.set_tool(SMARTPOLYGON))
+
         btnCircle = QPushButton(QIcon('icons/circle.png'), 'Ellipse', self)
         btnCircle.setToolTip('(E) draw an annotation Ellipse')
         # btnCircle.setShortcut('E')
@@ -316,6 +322,7 @@ class MainWindow(QMainWindow):
 
         self.tool.addWidget(btnGrab)
         self.tool.addWidget(btnPoly)
+        self.tool.addWidget(btnSmart)
         self.tool.addWidget(btnCircle)
         self.tool.addWidget(btnBBX)
         self.tool.addWidget(btnLine)

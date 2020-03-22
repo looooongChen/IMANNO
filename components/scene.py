@@ -4,6 +4,7 @@ from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent, QGraphicsPathItem
 from PyQt5.QtGui import QImage, QPixmap, QTransform
 import numpy as np
+from PIL import Image
 
 from .commands import *
 from .graphDef import *
@@ -17,14 +18,15 @@ class Scene(QGraphicsScene):
     # List of available tools:
     # Tool-handling here and in respective QUndoCommand-derived class
     # Results are stored and managed in an AnnotationManager
-    grabAndMove = 0
-    polygonPainter = 1
-    circlePainter = 2
+    # grabAndMove = 0
+    # polygonPainter = 1
+    # circlePainter = 2
 
     def __init__(self, config, parent=None):
         super().__init__(parent=parent)
         self.config = config
         # background image
+        self.image = np.asarray(Image.open('icons/startscreen.png'))
         self.bgImage = QImage('icons/startscreen.png')
         self.bgPixmap = self.addPixmap(QPixmap.fromImage(self.bgImage))
 
@@ -62,6 +64,7 @@ class Scene(QGraphicsScene):
 
     def setNewImage(self, image):
         self.clear_items()
+        self.image = image
         self.bgImage = self.image2QImage(image)
         self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
         # self.updateScene()
@@ -187,6 +190,13 @@ class Scene(QGraphicsScene):
                 else:
                     self.currentCommand = PolygonPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
+            elif self.operation == SMARTPOLYGON:
+                if self.drawing:
+                    self.currentCommand.finish()
+                    self.drawing = False
+                else:
+                    self.currentCommand = SmartPainter(self, self.annotationMgr, self.clickPos)
+                    self.drawing = True
             elif self.operation == BBX:
                 if self.drawing:
                     self.currentCommand.finish()
@@ -227,7 +237,9 @@ class Scene(QGraphicsScene):
         assert isinstance(event, QGraphicsSceneMouseEvent)
         if self.operation == POLYGON and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        if self.operation == LINE and self.drawing:
+        elif self.operation == SMARTPOLYGON and self.drawing:
+            self.currentCommand.mouseMoveEvent(event)
+        elif self.operation == LINE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
         elif self.operation == BBX and self.drawing:
             self.currentCommand.mouseMoveEvent(event)

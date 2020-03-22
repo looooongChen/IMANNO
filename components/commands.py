@@ -192,6 +192,52 @@ class PolygonPainter(BaseToolClass):
         print("Drawing canceled")
         self.scene.removeItem(self.polygonItem)
 
+class SmartPainter(BaseToolClass):
+
+    def __init__(self, scene, annotationMgr, start):
+        super().__init__(scene, annotationMgr)
+
+        self.start = start
+        self.polygon = QPolygonF()
+        self.polygon << self.start
+        # add a polygon figure to QGraphicsScene
+        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
+        self.areaBrush = QBrush(QColor(0, 200, 0, 70))
+        self.polygonItem = self.scene.addPolygon(self.polygon, self.linePen, self.areaBrush)
+        print('====================================')
+        print('Drawing a new polygon')
+
+        self.edge_map = cv2.Canny(scene.image, 100, 200)
+        scene.setNewImage(self.edge_map)
+         
+
+    def mouseMoveEvent(self, event):
+        self.polygon << event.scenePos()
+        self.polygonItem.setPolygon(self.polygon)
+        self.polygonItem.update()
+
+    def process(self):
+        try:
+            # get data from QPolygonF
+            vptr = self.polygon.data()
+            vptr.setsize(8*2*self.polygon.size())
+            # compute a approximation of the original polygon
+            poly = np.ndarray(shape=(self.polygon.size(), 2), dtype=np.float64, buffer=vptr)
+            poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
+            # display message
+            print("Polygon finished: ", self.polygonItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
+            print("Pass the polygon to annotationMgr")
+            self.scene.removeItem(self.polygonItem)
+            self.annotationMgr.new_annotation(POLYGON, poly_appx)
+            self.scene.set_tool(POLYGON)
+        except Exception as e:
+            print(e)
+            print("You should move the mouse a little more before finishing a polygon :-)")
+
+    def cancel(self):
+        print("Drawing canceled")
+        self.scene.removeItem(self.polygonItem)
+
 ###################################
 #### class for ellipse drawing ####
 ###################################

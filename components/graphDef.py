@@ -1,5 +1,6 @@
 BROWSE = 'browse'
 POLYGON = 'polygon'
+SMARTPOLYGON = 'smart_polygon'
 OVAL = 'oval'
 POINT = 'point'
 BBX = 'bouding box'
