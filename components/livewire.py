@@ -66,7 +66,7 @@ class Livewire(object):
                     yield (x, y)
     
     def check_pt_in_img(self, pt):
-        if pt[0] < 0 or pt[1] < 0 or pt[0] > self.sz[1] or pt[1] > self.sz[0]:
+        if pt[0] < 0 or pt[1] < 0 or pt[0] >= self.sz[1] or pt[1] >= self.sz[0]:
             return False
         else:
             return True
