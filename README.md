@@ -31,7 +31,11 @@ https://www.youtube.com/watch?v=1drqp9zhjbY
 ## Features:
 
 ### Drawing
-Polygons, Livewire, Ellipses, Bounding Box, Dot
+- Polygons: free drawing
+- Livewire/Intelligent Scissor: draw by clicking points, lines between points are estimated by the software
+- Ellipses:
+- Bounding Box
+- Dot
 
 ### Labeling
 

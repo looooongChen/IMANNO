@@ -213,13 +213,20 @@ class Annotation(object):
         """
         timestamp = location.attrs['timestamp']
         dataObject = cls._load_annotation(location)
-        annotation = cls(timestamp, dataObject, (1,1), **kwargs)
+        if dataObject is not None:
+            annotation = cls(timestamp, dataObject, (1,1), **kwargs)
 
-        if 'labels' in location.keys():
-            for attr_name in location['labels'].keys():
-                label_name = location['labels'][attr_name].attrs['label_name']
-                annotation.add_label(attr_group[attr_name].get_label(label_name))
-        return annotation
+            if 'labels' in location.keys():
+                for attr_name in location['labels'].keys():
+                    if attr_name in attr_group.keys():
+                        label_name = location['labels'][attr_name].attrs['label_name']
+                        annotation.add_label(attr_group[attr_name].get_label(label_name))
+                    else:
+                        print("Warning: object label not found in the attribute group!")
+            return annotation
+        else:
+            print("Warning: damaged annotation, will be cleaned after next save")
+            return None
 
     @abstractmethod
     def get_graphObject(self, scale_factor):
@@ -273,6 +280,7 @@ class PointAnnotation(Annotation):
             return np.array([location['pt'][0], location['pt'][1]])
         except Exception as e:
             print('An exception occurred while loading a polygon: ', e)
+            return None
 
     def get_graphObject(self, scale_factor):
         bbx = QRectF()
@@ -332,6 +340,7 @@ class LineAnnotation(Annotation):
             return line
         except Exception as e:
             print('An exception occurred while loading a line: ', e)
+            return None
 
     def get_graphObject(self, scale_factor):
         line = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
@@ -404,6 +413,7 @@ class PolygonAnnotation(Annotation):
             return polygon
         except Exception as e:
             print('An exception occurred while loading a polygon: ', e)
+            return None
 
     def get_graphObject(self, scale_factor):
         polygon = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
@@ -470,6 +480,7 @@ class BBXAnnotation(Annotation):
             return bbx
         except Exception as e:
             print('An exception occurred while loading a boundingBox: ', e)
+            return None
 
     def get_graphObject(self, scale_factor):
         bbx = QRectF()
@@ -544,6 +555,7 @@ class OVALAnnotation(Annotation):
             return paras
         except Exception as e:
             print('An exception occurred while loading a ellipse: ', e)
+            return None
 
     def get_graphObject(self, scale_factor):
         bbx = QRectF()
@@ -809,7 +821,8 @@ class AnnotationManager(object):
             if 'annotations' in location.keys():
                 for timestamp in location['annotations']:
                     annotation = self.load_single_annotation(location['annotations'][timestamp], self.attributes)
-                    self.add_annotation(annotation)
+                    if annotation is not None:
+                        self.add_annotation(annotation)
 
             location.flush()
             location.close()
