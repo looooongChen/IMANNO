@@ -22,7 +22,7 @@ def gradient_cost(img):
 
 class Livewire(object):
 
-    def __init__(self, image=None, sigma=1):
+    def __init__(self, image=None, sigma=0):
         
         if image is not None:
             self.image = image
@@ -47,8 +47,9 @@ class Livewire(object):
         if self.image is not None:
             image = rgb2gray(self.image)
             self.sz = image.shape
-            img_smooth = gaussian(image, sigma=self.sigma)
-            self.cost_G = gradient_cost(img_smooth) 
+            if self.sigma > 0:
+                image = gaussian(image, sigma=self.sigma)
+            self.cost_G = gradient_cost(image) 
 
     def pt2index(self, pt):
         return pt[0] + pt[1] * self.sz[1]
