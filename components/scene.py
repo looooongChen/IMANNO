@@ -6,6 +6,7 @@ from PyQt5.QtGui import QImage, QPixmap, QTransform
 import numpy as np
 from PIL import Image
 
+from .livewire import Livewire
 from .commands import *
 from .graphDef import *
 from .annotationManager import Annotation
@@ -34,21 +35,21 @@ class Scene(QGraphicsScene):
         self.annotationMgr = None
         self.scene = None
         self.canvas = None
+        self.livewire = Livewire()
 
         # run-time stack
         self.selectedItems = []
 
         # run-time status
         self.drawing = False
-        self.operation = None
+        self.tool = None
         self.currentCommand = None
-        self.display_attr = None
 
         # time part
         # error occurs when pass event through signal
         self.time = None
-        self.clickedBtn = None
         self.clickPos = None
+        self.clickBtn = None
 
     def set_annotationMgr(self, annotationMgr):
         self.annotationMgr = annotationMgr
@@ -99,16 +100,15 @@ class Scene(QGraphicsScene):
     #### update methods ####
     ########################
 
-    def updateScene(self):
-        if self.bgImage is None:
-            return
-        self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
-        self.update_display_channel()
+    # def updateScene(self):
+    #     if self.bgImage is None:
+    #         return
+    #     self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
+    #     self.update_display_channel()
 
-
-    def update_display_channel(self):
+    def refresh_display_channel(self):
         for timestamp in self.annotationMgr.annotations.keys():
-            pen, brush = self.annotationMgr.appearance(self.annotationMgr.annotations[timestamp], self.display_attr)
+            pen, brush = self.annotationMgr.appearance(self.annotationMgr.annotations[timestamp], self.config['display_channel'])
             self.annotationMgr.annotations[timestamp].graphObject.setPen(pen)
             self.annotationMgr.annotations[timestamp].graphObject.setBrush(brush)
         self.highlight_items(self.selectedItems)
@@ -161,10 +161,9 @@ class Scene(QGraphicsScene):
 
 
     def cancel_operation(self):
-        if self.operation == POLYGON or self.operation == BBX or self.operation == OVAL or self.operation == LINE:
-            if self.drawing:
-                self.drawing = False
-                self.currentCommand.cancel()
+        if self.drawing:
+            self.drawing = False
+            self.currentCommand.cancel()
 
 
 
@@ -173,8 +172,9 @@ class Scene(QGraphicsScene):
     ###########################################
 
     def mousePressEvent(self, event):
-        self.clickedBtn = event.button()
-        self.clickPos = event.scenePos()
+        self.event = event
+        self.clickPos = self.event.scenePos()
+        self.clickBtn = self.event.button()
         self.timer = QTimer()
         self.timer.setInterval(200)
         self.timer.timeout.connect(self.singleClickAction)
@@ -182,51 +182,50 @@ class Scene(QGraphicsScene):
 
     def singleClickAction(self):
         self.timer.stop()
-        if self.clickedBtn & QtCore.Qt.LeftButton:
-            if self.operation == POLYGON:
+        if self.clickBtn & QtCore.Qt.LeftButton:
+            if self.tool == POLYGON:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
                     self.currentCommand = PolygonPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            elif self.operation == SMARTPOLYGON:
+            elif self.tool == LIVEWIRE:
                 if self.drawing:
-                    self.currentCommand.finish()
-                    self.drawing = False
+                    self.currentCommand.mouseSingleClickEvent(self.clickPos)
                 else:
-                    self.currentCommand = SmartPainter(self, self.annotationMgr, self.clickPos)
+                    self.currentCommand = LivewirePainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            elif self.operation == BBX:
+            elif self.tool == BBX:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
                     self.currentCommand = BBXPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            elif self.operation == OVAL:
+            elif self.tool == OVAL:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
                     self.currentCommand = OvalPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            elif self.operation == POINT:
+            elif self.tool == POINT:
                 self.currentCommand = PointPainter(self, self.annotationMgr, self.clickPos, self.config['DotAnnotationRadius'])
                 self.currentCommand.finish()
-            elif self.operation == LINE:
+            elif self.tool == LINE:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
                     self.currentCommand = LinePainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            if self.operation == BROWSE:
+            if self.tool == BROWSE:
                 pass
 
     def mouseDoubleClickEvent(self, event):
         self.timer.stop()
-        if event.button() == Qt.LeftButton:
+        if self.clickBtn == Qt.LeftButton:
             if self.drawing:
                 self.currentCommand.finish()
                 self.drawing = False
@@ -235,19 +234,25 @@ class Scene(QGraphicsScene):
 
     def mouseMoveEvent(self, event):
         assert isinstance(event, QGraphicsSceneMouseEvent)
-        if self.operation == POLYGON and self.drawing:
+        if self.tool == POLYGON and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        elif self.operation == SMARTPOLYGON and self.drawing:
+        elif self.tool == LIVEWIRE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        elif self.operation == LINE and self.drawing:
+        elif self.tool == LINE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        elif self.operation == BBX and self.drawing:
+        elif self.tool == BBX and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        elif self.operation == OVAL and self.drawing:
+        elif self.tool == OVAL and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
 
+    def refresh_livewire(self):
+        if self.livewire.image is not self.config['image']:
+            self.livewire.set_image(self.config['image'])
+
     def set_tool(self, tool):
-        self.operation = tool
+        self.tool = tool
+        if self.tool == LIVEWIRE:
+            self.refresh_livewire() 
         self.drawing = False
         self.currentCommand = None
 
@@ -255,10 +260,10 @@ class Scene(QGraphicsScene):
     def wheelEvent(self, event):
         pass
         # if event.delta() < 0:
-        #     if self.operation == OVAL and self.drawing:
+        #     if self.tool == OVAL and self.drawing:
         #         self.currentCommand.shrink()
         # elif event.delta() > 0:
-        #     if self.operation == OVAL and self.drawing:
+        #     if self.tool == OVAL and self.drawing:
         #         self.currentCommand.expand()
         # else:
         #     pass
@@ -270,13 +275,13 @@ class Scene(QGraphicsScene):
         elif self.selectedItems and event.key() == Qt.Key_Delete:
             self.deleteItem()
         elif event.key() == Qt.Key_Z:
-            if self.operation == OVAL and self.drawing:
+            if self.tool == OVAL and self.drawing:
                 self.currentCommand.shrink()
-            elif self.operation == POINT:
+            elif self.tool == POINT:
                 self.currentCommand.shrink()
         elif event.key() == Qt.Key_A:
-            if self.operation == OVAL and self.drawing:
+            if self.tool == OVAL and self.drawing:
                 self.currentCommand.expand()
-            elif self.operation == POINT:
+            elif self.tool == POINT:
                 self.currentCommand.expand()
 

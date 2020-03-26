@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 
 from abc import abstractmethod
+import copy
 
 from .graphDef import *
 
@@ -60,22 +61,25 @@ class BaseToolClass(object):
     def keyReleaseEvent(self, event):
         pass
 
+    def cancel(self):
+        pass
+
 #################################
 #### class for point drawing ####
 #################################
 
 
 class PointPainter(BaseToolClass):
-    def __init__(self, scene, annotationMgr, start, size=4):
+    def __init__(self, scene, annotationMgr, start, radius=2):
         super().__init__(scene, annotationMgr)
 
         self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
         self.areaBrush = QBrush(QColor(0, 200, 0, 255))
 
         self.start = start
-        self.size = size
+        self.radius = radius
 
-        self.dotItem = self.scene.addEllipse(start.x()-self.size/2,start.y()-self.size/2, self.size, self.size, self.linePen, self.areaBrush)
+        self.dotItem = self.scene.addEllipse(start.x()-self.radius,start.y()-self.radius, self.radius*2, self.radius*2, self.linePen, self.areaBrush)
 
         print('====================================')
         print('A new point is drawed')
@@ -108,7 +112,6 @@ class LinePainter(BaseToolClass):
         self.line << self.start
         # add a polygon figure to QGraphicsScene
         self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
-
         path = QPainterPath()
         path.addPolygon(self.line)
 
@@ -192,44 +195,60 @@ class PolygonPainter(BaseToolClass):
         print("Drawing canceled")
         self.scene.removeItem(self.polygonItem)
 
-class SmartPainter(BaseToolClass):
+class LivewirePainter(BaseToolClass):
 
     def __init__(self, scene, annotationMgr, start):
         super().__init__(scene, annotationMgr)
 
         self.start = start
         self.polygon = QPolygonF()
+        self.poly_tmp = QPolygonF()
         self.polygon << self.start
+        self.scene.refresh_livewire()
+        self.scene.livewire.set_seed((self.start.x(), self.start.y()))
         # add a polygon figure to QGraphicsScene
         self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
         self.areaBrush = QBrush(QColor(0, 200, 0, 70))
         self.polygonItem = self.scene.addPolygon(self.polygon, self.linePen, self.areaBrush)
         print('====================================')
-        print('Drawing a new polygon')
-
-        self.edge_map = cv2.Canny(scene.image, 100, 200)
-        scene.setNewImage(self.edge_map)
+        print('Livewire tool activated')
          
-
-    def mouseMoveEvent(self, event):
-        self.polygon << event.scenePos()
+    def mouseSingleClickEvent(self, pt):
+        path_x, path_y = self.scene.livewire.get_path((pt.x(), pt.y()))
+        self.scene.livewire.set_seed((pt.x(), pt.y()))
+        for i in reversed(range(len(path_x)-1)):
+            self.polygon << QPointF(path_x[i], path_y[i])
         self.polygonItem.setPolygon(self.polygon)
         self.polygonItem.update()
 
+    def mouseMoveEvent(self, event):
+        pt = event.scenePos()
+        self.poly_tmp.clear()
+        path_x, path_y = self.scene.livewire.get_path((pt.x(), pt.y()))
+        for i in reversed(range(len(path_x)-1)):
+            self.poly_tmp << QPointF(path_x[i], path_y[i])
+        self.polygonItem.setPolygon(self.polygon+self.poly_tmp)
+        self.polygonItem.update()
+        # for i in reversed(range(len(path_x)-1)):
+        #     self.polygon.remove(-1)
+
     def process(self):
         try:
+            path_x, path_y = self.scene.livewire.get_path((self.start.x(), self.start.y()))
+            for i in reversed(range(1,len(path_x)-1)):
+                self.polygon << QPointF(path_x[i], path_y[i])
             # get data from QPolygonF
             vptr = self.polygon.data()
             vptr.setsize(8*2*self.polygon.size())
             # compute a approximation of the original polygon
             poly = np.ndarray(shape=(self.polygon.size(), 2), dtype=np.float64, buffer=vptr)
-            poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
+            poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .5, True))
             # display message
             print("Polygon finished: ", self.polygonItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
             print("Pass the polygon to annotationMgr")
             self.scene.removeItem(self.polygonItem)
             self.annotationMgr.new_annotation(POLYGON, poly_appx)
-            self.scene.set_tool(POLYGON)
+            self.scene.set_tool(LIVEIRE)
         except Exception as e:
             print(e)
             print("You should move the mouse a little more before finishing a polygon :-)")

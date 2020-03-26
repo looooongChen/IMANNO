@@ -7,10 +7,11 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 
 ## Dependencies:
 
-- python = 3.5
-- opencv = 3.4 
-- pyqt = 5.9
-- h5py = 2.8
+- python = 3.x
+- opencv = 3.x 
+- pyqt = 5.x
+- h5py
+- scikit-image
 
 optional:
 - pyinstaller
@@ -24,10 +25,13 @@ conda env create -f env.yml
 
 /release_MM_YYYY/ contains an independent executable for windows users
 
+## Usage:
+https://www.youtube.com/watch?v=1drqp9zhjbY
+
 ## Features:
 
 ### Drawing
-Polygons, Ellipses, Bounding Box, Dot
+Polygons, Livewire, Ellipses, Bounding Box, Dot
 
 ### Labeling
 
@@ -58,6 +62,9 @@ Polygon:
 - /annotations/<timestamp_of_annotation>/boundingBox:(4,)
 - /annotations/<timestamp_of_annotation>/polygon:(N,2)
 
+Livewire:
+- save as a polygon object
+
 Bouding box:  
 - /annotations/<timestamp_of_annotation>/boundingBox:(4,)   
 
@@ -73,7 +80,7 @@ Data structure
 - boundingBox(4,): x, y, w, h  
 - polygon(N,2): coordinates  
 - center(2,): image coordinate x-right y-down  
-- angle(1,): 0 angle - right  
+- angle(1,): 0 angle - right (in degree)
 - axis(2,): main axis lenght, side axis length  
 - pt(2,): x, y  
 
@@ -93,8 +100,8 @@ options:
 
 ## TODOs:
 
-- add config menu
-- optimiza GUI
+- config menu
+- screen shot
 
 ## Export executable (windows10 tested)
 

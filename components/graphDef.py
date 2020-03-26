@@ -1,6 +1,6 @@
 BROWSE = 'browse'
 POLYGON = 'polygon'
-SMARTPOLYGON = 'smart_polygon'
+LIVEWIRE = 'livewire'
 OVAL = 'oval'
 POINT = 'point'
 BBX = 'bouding box'

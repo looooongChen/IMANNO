@@ -9,6 +9,7 @@ from datetime import datetime as datim
 import numpy as np
 import h5py
 import sys
+import math
 
 
 from abc import ABC, abstractmethod
@@ -108,12 +109,14 @@ class Annotation(object):
     class that contains the data of an annotation, graph item is kept in Annotation manage, they have the same timestamp
     """
 
-    def __init__(self, timestamp, dataObject, type, **kwargs):
+    def __init__(self, timestamp, dataObject, type, scale_factor=(1,1), **kwargs):
         self.type = type
         self.timestamp = timestamp
-        self.dataObject = dataObject
+        if scale_factor[0] != 1 or scale_factor[1] != 1:
+            self.dataObject = self.process_dataObject(dataObject, scale_factor)
+        else:
+            self.dataObject = dataObject
         self.graphObject = None
-        self._graphObject()
         self.labels = []
 
     def add_label(self, label_obj):
@@ -136,6 +139,11 @@ class Annotation(object):
         except Exception as e:
             return
 
+    @abstractmethod
+    def process_dataObject(self, dataObject, scale_factor):
+        pass
+    
+    @abstractmethod
     def save_dataObject(self, location):
         """
         an abstract function
@@ -204,9 +212,8 @@ class Annotation(object):
         Returns: an Annotation object
         """
         timestamp = location.attrs['timestamp']
-        type = location.attrs['type']
         dataObject = cls._load_annotation(location)
-        annotation = cls(timestamp, dataObject, type, **kwargs)
+        annotation = cls(timestamp, dataObject, (1,1), **kwargs)
 
         if 'labels' in location.keys():
             for attr_name in location['labels'].keys():
@@ -215,7 +222,7 @@ class Annotation(object):
         return annotation
 
     @abstractmethod
-    def _graphObject(self):
+    def get_graphObject(self, scale_factor):
         """
         an method to return the graph object,
         notice that graphObject and dataObject may be different in some cases
@@ -224,46 +231,22 @@ class Annotation(object):
         """
         pass
 
-    def tooltip(self):
-        tooltip = '<p><b>Labels:</b></p>'
-        for label in self.labels:
-            tooltip = tooltip + '<p>' + label.attr_name + ': ' + label.label_name + '</p>'
-        return tooltip
-
-    # def appearance(self, display_attr=None):
-    #     if isinstance(display_attr, str):
-    #         for label in self.labels:
-    #             if display_attr == label.attr_name:
-    #                 c = label.color
-    #                 linePen = QPen(QColor(c[0], c[1], c[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-    #                 areaBrush = QBrush(QColor(c[0], c[1], c[2], 70))
-    #                 return linePen, areaBrush
-    #         linePen = QPen(QColor(0, 0, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-    #         areaBrush = QBrush(QColor(0, 0, 0, 70))
-    #     elif display_attr == 1:
-    #         linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-    #         areaBrush = QBrush(QColor(0, 200, 0, 70))
-    #     else:
-    #         linePen = QPen(QColor(0, 0, 0, 0), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-    #         areaBrush = QBrush(QColor(0, 0, 0, 0))
-        
-    #     if self.type == LINE:
-    #         linePen.setWidth(2)
-    #         areaBrush = QBrush(QColor(0, 200, 0, 0))
-
-    #     return linePen, areaBrush
-
 class PointAnnotation(Annotation):
 
-    def __init__(self, timestamp, pt, type=POINT, size=5):
+    def __init__(self, timestamp, pt, scale_factor=(1,1), radius=2):
         """
         constructor of PointAnnotation
         Args:
             timestamp: time stamp
             polygon: a QPolygonF object
         """
-        self.size = size
-        super().__init__(timestamp, pt, type)
+        self.radius = radius
+        super().__init__(timestamp, pt, POINT, scale_factor)
+
+    def process_dataObject(self, dataObject, scale_factor):
+        dataObject[0] = dataObject[0]/scale_factor[0]
+        dataObject[1] = dataObject[1]/scale_factor[1]
+        return dataObject
 
     def save_dataObject(self, location):
         """
@@ -291,27 +274,29 @@ class PointAnnotation(Annotation):
         except Exception as e:
             print('An exception occurred while loading a polygon: ', e)
 
-    def _graphObject(self):
+    def get_graphObject(self, scale_factor):
         bbx = QRectF()
-        bbx.setTopLeft(QPointF(self.dataObject[0]-self.size/2, self.dataObject[1] -self.size/2))
-        bbx.setSize(QSizeF(self.size, self.size))
-
+        bbx.setTopLeft(QPointF(self.dataObject[0]*scale_factor[0]-self.radius, self.dataObject[1]*scale_factor[1] -self.radius))
+        bbx.setSize(QSizeF(self.radius*2, self.radius*2))
         ellipse = QGraphicsEllipseItem(bbx)
-
         self.graphObject = ellipse
-
-        return ellipse
+        return self.graphObject
 
 class LineAnnotation(Annotation):
 
-    def __init__(self, timestamp, line, type=LINE):
+    def __init__(self, timestamp, line, scale_factor=(1,1)):
         """
         constructor of LineAnnotation
         Args:
             timestamp: time stamp
             line: a nx2 numpy containing coordinated of the line
         """
-        super().__init__(timestamp, line, type)
+        super().__init__(timestamp, line, LINE, scale_factor)
+    
+    def process_dataObject(self, dataObject, scale_factor):
+        dataObject[:,0] = dataObject[:,0]/scale_factor[0]
+        dataObject[:,1] = dataObject[:,1]/scale_factor[1]
+        return dataObject
 
     def save_dataObject(self, location):
         """
@@ -332,7 +317,6 @@ class LineAnnotation(Annotation):
             location.create_dataset('line', shape=self.dataObject.shape, data=pts)
 
 
-
     @classmethod
     def _load_annotation(cls, location):
         """
@@ -349,8 +333,8 @@ class LineAnnotation(Annotation):
         except Exception as e:
             print('An exception occurred while loading a line: ', e)
 
-    def _graphObject(self):
-        line = QPolygonF([QPointF(self.dataObject[i, 0], self.dataObject[i, 1]) for i in range(self.dataObject.shape[0])])
+    def get_graphObject(self, scale_factor):
+        line = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
         path = QPainterPath()
         path.addPolygon(line)
         self.graphObject = QGraphicsPathItem(path)
@@ -371,14 +355,19 @@ class LineAnnotation(Annotation):
 
 class PolygonAnnotation(Annotation):
 
-    def __init__(self, timestamp, polygon, type=POLYGON):
+    def __init__(self, timestamp, polygon, scale_factor=(1,1)):
         """
         constructor of PolygonAnnotation
         Args:
             timestamp: time stamp
             polygon: a nx2 numpy containing coordinated of the polygon
         """
-        super().__init__(timestamp, polygon, type)
+        super().__init__(timestamp, polygon, POLYGON, scale_factor)
+    
+    def process_dataObject(self, dataObject, scale_factor):
+        dataObject[:,0] = dataObject[:,0]/scale_factor[0]
+        dataObject[:,1] = dataObject[:,1]/scale_factor[1]
+        return dataObject
 
     def save_dataObject(self, location):
         """
@@ -416,10 +405,10 @@ class PolygonAnnotation(Annotation):
         except Exception as e:
             print('An exception occurred while loading a polygon: ', e)
 
-    def _graphObject(self):
-        polygon = QPolygonF([QPointF(self.dataObject[i, 0], self.dataObject[i, 1]) for i in range(self.dataObject.shape[0])])
+    def get_graphObject(self, scale_factor):
+        polygon = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
         self.graphObject = QGraphicsPolygonItem(polygon)
-        return polygon
+        return self.graphObject
 
     def _get_boundingBox(self):
         """
@@ -436,14 +425,21 @@ class PolygonAnnotation(Annotation):
 
 class BBXAnnotation(Annotation):
 
-    def __init__(self, timestamp, bbx, type=BBX):
+    def __init__(self, timestamp, bbx, scale_factor=(1,1)):
         """
         constructor of PolygonAnnotation
         Args:
             timestamp: time stamp
             polygon: a QRectF object
         """
-        super().__init__(timestamp, bbx, type)
+        super().__init__(timestamp, bbx, BBX, scale_factor)
+    
+    def process_dataObject(self, dataObject, scale_factor):
+        dataObject[0] = dataObject[0]/scale_factor[0]
+        dataObject[1] = dataObject[1]/scale_factor[1]
+        dataObject[2] = dataObject[2]/scale_factor[0]
+        dataObject[3] = dataObject[3]/scale_factor[1]
+        return dataObject
 
     def save_dataObject(self, location):
         """
@@ -475,25 +471,39 @@ class BBXAnnotation(Annotation):
         except Exception as e:
             print('An exception occurred while loading a boundingBox: ', e)
 
-    def _graphObject(self):
+    def get_graphObject(self, scale_factor):
         bbx = QRectF()
-        bbx.setTopLeft(QPointF(self.dataObject[0], self.dataObject[1]))
-        bbx.setSize(QSizeF(self.dataObject[2], self.dataObject[3]))
-
+        bbx.setTopLeft(QPointF(self.dataObject[0]*scale_factor[0], self.dataObject[1]*scale_factor[1]))
+        bbx.setSize(QSizeF(self.dataObject[2]*scale_factor[0], self.dataObject[3]*scale_factor[1]))
         self.graphObject = QGraphicsRectItem(bbx)
-
-        return bbx
+        return self.graphObject
 
 class OVALAnnotation(Annotation):
 
-    def __init__(self, timestamp, paras, type=OVAL):
+    def __init__(self, timestamp, paras, scale_factor):
         """
         constructor of PolygonAnnotation
         Args:
             timestamp: time stamp
             polygon: a QRectF object
         """
-        super().__init__(timestamp, paras, type)
+        super().__init__(timestamp, paras, OVAL, scale_factor)
+    
+    def process_dataObject(self, dataObject, scale_factor):
+
+        axis_major = dataObject['axis'][0]
+        axis_minor = dataObject['axis'][1]
+        c = math.cos(math.radians(dataObject['angle']))
+        s = math.sin(math.radians(dataObject['angle']))
+        axis_major = math.sqrt((axis_major * c / scale_factor[0]) ** 2 + (axis_major * s / scale_factor[1]) ** 2)
+        axis_minor = math.sqrt((axis_minor * s / scale_factor[0]) ** 2 + (axis_minor * c / scale_factor[1]) ** 2)
+        dataObject['axis'][0] = axis_major
+        dataObject['axis'][1] = axis_minor
+
+        dataObject['center'][0] = dataObject['center'][0] / scale_factor[0]
+        dataObject['center'][1] = dataObject['center'][1] / scale_factor[1]
+
+        return dataObject
 
     def save_dataObject(self, location):
         """
@@ -535,21 +545,27 @@ class OVALAnnotation(Annotation):
         except Exception as e:
             print('An exception occurred while loading a ellipse: ', e)
 
-    def _graphObject(self):
+    def get_graphObject(self, scale_factor):
         bbx = QRectF()
-        bbx.setTopLeft(QPointF(-1 * self.dataObject['axis'][1] / 2, -1 * self.dataObject['axis'][0] / 2))
-        bbx.setSize(QSizeF(self.dataObject['axis'][1], self.dataObject['axis'][0]))
+
+        axis_major = self.dataObject['axis'][0]
+        axis_minor = self.dataObject['axis'][1]
+        c = math.cos(math.radians(self.dataObject['angle']))
+        s = math.sin(math.radians(self.dataObject['angle']))
+        axis_major = math.sqrt((axis_major * c * scale_factor[0]) ** 2 + (axis_major * s * scale_factor[1]) ** 2)
+        axis_minor = math.sqrt((axis_minor * s * scale_factor[0]) ** 2 + (axis_minor * c * scale_factor[1]) ** 2)
+
+        bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
+        bbx.setSize(QSizeF(axis_minor, axis_major))
         ellipse = QGraphicsEllipseItem(bbx)
 
         t = QTransform()
-        t.translate(self.dataObject['center'][0], self.dataObject['center'][1])
+        t.translate(self.dataObject['center'][0]*scale_factor[0], self.dataObject['center'][1]*scale_factor[1])
         t.rotate(-1 * self.dataObject['angle'] + 90)
-
         ellipse.setTransform(t)
 
         self.graphObject = ellipse
-
-        return ellipse
+        return self.graphObject
 
 
 #####################################################
@@ -597,37 +613,38 @@ class AnnotationManager(object):
             timestamp = datim.today().isoformat('@')
 
         if type == POLYGON:
-            annotation = PolygonAnnotation(timestamp, dataObject)
+            annotation = PolygonAnnotation(timestamp, dataObject, self.config['scale_factor'])
         elif type == BBX:
-            annotation = BBXAnnotation(timestamp, dataObject)
+            annotation = BBXAnnotation(timestamp, dataObject, self.config['scale_factor'])
         elif type == OVAL:
-            annotation = OVALAnnotation(timestamp, dataObject)
+            annotation = OVALAnnotation(timestamp, dataObject, self.config['scale_factor'])
         elif type == POINT:
-            annotation = PointAnnotation(timestamp, dataObject, size=self.config["DotAnnotationRadius"])
+            annotation = PointAnnotation(timestamp, dataObject, self.config['scale_factor'], radius=self.config["DotAnnotationRadius"])
         elif type == LINE:
-            annotation = LineAnnotation(timestamp, dataObject)
+            annotation = LineAnnotation(timestamp, dataObject, self.config['scale_factor'])
         else:
             print("Unknown annotation type")
 
-        self.add_annotation(annotation, self.scene.display_attr)
+        self.add_annotation(annotation, self.config['display_channel'])
         self.needsSave = True
 
-    def add_graphItem(self, annotation, display_attr = None):
-
-        type = annotation.type
+    def add_graphItem(self, annotation, display_channel=None):
         if self.scene:
-            pen, brush = self.appearance(annotation, display_attr)
-            annotation.graphObject.setPen(pen)
-            annotation.graphObject.setBrush(brush)
-            self.scene.addItem(annotation.graphObject)
+            pen, brush = self.appearance(annotation, display_channel)
+            graphObj = annotation.get_graphObject(self.config['scale_factor'])
+            graphObj.setPen(pen)
+            graphObj.setBrush(brush)
+            self.scene.addItem(graphObj)
     
-    def add_annotation(self, annotation, display_attr = None):
-
+    def add_annotation(self, annotation, display_channel=None):
         self.annotations[annotation.timestamp] = annotation
-        self.add_graphItem(annotation, display_attr)
+        self.add_graphItem(annotation, display_channel)
 
-        # if self.scene:
-        #     self.scene.updateScene()
+    def add_existing_graphItems(self, display_channel=None):
+        if self.scene:
+            self.scene.clear_items()
+            for _, annotation in self.annotations.items():
+                self.add_graphItem(annotation, display_channel)
 
     def add_label_to_selected_annotations(self, label_name, attr_name):
 
@@ -822,23 +839,23 @@ class AnnotationManager(object):
         elif type == OVAL:
             return OVALAnnotation.load(location, attr_group)
         elif type == POINT:
-            return PointAnnotation.load(location, attr_group, size=self.config["DotAnnotationRadius"])
+            return PointAnnotation.load(location, attr_group, radius=self.config["DotAnnotationRadius"])
         elif type == LINE:
             return LineAnnotation.load(location, attr_group)
         else:
             print("Unknown annotation type")
 
-    def appearance(self, anno, display_attr=None):
-        if isinstance(display_attr, str):
+    def appearance(self, anno, display_channel=None):
+        if isinstance(display_channel, str):
             for label in anno.labels:
-                if display_attr == label.attr_name:
+                if display_channel == label.attr_name:
                     c = label.color
                     linePen = QPen(QColor(c[0], c[1], c[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                     areaBrush = QBrush(QColor(c[0], c[1], c[2], 70))
                     return linePen, areaBrush
             linePen = QPen(QColor(0, 0, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             areaBrush = QBrush(QColor(0, 0, 0, 70))
-        elif display_attr == 1:
+        elif display_channel == 1:
             linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             areaBrush = QBrush(QColor(0, 200, 0, 70))
         else:
@@ -850,83 +867,6 @@ class AnnotationManager(object):
             areaBrush = QBrush(QColor(0, 200, 0, 0))
 
         return linePen, areaBrush
-
-
-    # def editAnnotation(self, polygonItem):
-    #     old = self.itemAnnotations[polygonItem]
-    #     args = []
-    #     args.append(old.user_id)
-    #     args.append(datim.today().isoformat('@'))
-    #     args.append(old.label.name)
-    #     args.append(old.remarks)
-    #     dlg = AnnotationDialog(self, args=args)
-    #     if QDialog.Accepted == dlg.exec ():
-    #         self.needsSave = True
-    #         return dlg.getAnnotationData()
-    #     return None
-    #
-
-
-    #
-
-    # def toggleAnnotations(self):
-    #     self.visibility = not self.visibility
-    #     for item in self.acceptedAnnotations.keys():
-    #         item.setVisible(self.visibility)
-    #
-    # def refreshLabelColors(self):
-    #     for polyItem in self.itemAnnotations.keys():
-    #         annotation = self.itemAnnotations[polyItem]
-    #         polyItem.setBrush(annotation.label.brush)
-
-
-
-
-
-#################################
-#### area under construction#####
-#################################
-
-
-# class LabelDialog(QDialog):
-#     """
-#     Lets you select a name and color for a new classification-LABEL.
-#     """
-#     def __init__(self, parent=None, label=None):
-#         super().__init__(parent=parent)
-#         self.ui = uic.loadUi('LabelDialog.ui', baseinstance=self)
-#         self.label = label
-#         if label:
-#             self.ui.edName.setText(label.name)
-#             self.ui.edName.setReadOnly(True)
-#             self.ui.edName.setEnabled(False)
-#             self.color = label.pen.color()
-#         else:
-#             self.color = QColor(235, 0, 0, 255)  # A default value
-#
-#         self.ui.btnColor.clicked.connect(self.selectColor)
-#         self.icon = QPixmap(20, 20)
-#         self.icon.fill(self.color)
-#         self.ui.btnColor.setIcon(QIcon(self.icon))
-#
-#     def selectColor(self):
-#         dlg = QColorDialog()
-#         if QDialog.Accepted == dlg.exec():
-#             self.color = dlg.selectedColor()
-#             self.icon.fill(self.color)
-#             self.ui.btnColor.setIcon(QIcon(self.icon))
-#
-#     def getLabel(self):
-#         if not self.label:
-#             return Label(self.ui.edName.text(), self.color)
-#
-#         self.label.__init__(self.label.name, self.color)
-#         return self.label
-
-
-
-
-
 
 
 
