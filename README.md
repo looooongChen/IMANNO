@@ -5,6 +5,10 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 
 ![ui](docs/ui.PNG)
 
+## updates:
+- 12.2019: support for bmp images; fix line annotation bug; noisy annotation clean based on area
+- 03.2020: Livewire tool
+
 ## Dependencies:
 
 - python = 3.x
@@ -116,6 +120,3 @@ pyinstaller main.py
 ```
 - copy ./config ./icons ./uis to the directory of your executable (which contains main.exe)
 - copy platform directory to the directory of your executable. You'll find the platform directory at a location like c:\Users\<username>\envs\<environmentname>\Library\plugins\platforms
-
-## releases:
-- 12.12.2019: support for bmp images; fix line annotation bug; noisy annotation clean based on area
