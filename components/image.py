@@ -4,6 +4,16 @@ from PyQt5.QtGui import QImage
 import numpy as np
 import hashlib
 
+def compute_checksum(file):
+
+    if os.path.isfile(file):
+        f = open(file, "rb") # opening for [r]eading as [b]inary
+        data = f.read(524288) # read the first 2**9 bytes
+        f.close()
+        return hashlib.sha256(data).hexdigest()
+    else:
+        return None
+
 class Image(object):
 
     def __init__(self):
@@ -80,14 +90,18 @@ class Image(object):
                 return self.data
 
     def get_checksum(self):
-        if self.height < 64 or self.width < 64:
-            return hashlib.sha256(self.data.tobytes(order='C')).hexdigest()
-        else:
-            s = self.data[:64,:64].tobytes(order='C')
-            s = s + self.data[:64,-64:].tobytes(order='C')
-            s = s + self.data[-64:,:64].tobytes(order='C')
-            s = s + self.data[-64:,-64:].tobytes(order='C')
-            return hashlib.sha256(s).hexdigest()
+        
+        if self.is_open():
+            return compute_checksum(self.path)
+
+        # if self.height < 64 or self.width < 64:
+        #     return hashlib.sha256(self.data.tobytes(order='C')).hexdigest()
+        # else:
+        #     s = self.data[:64,:64].tobytes(order='C')
+        #     s = s + self.data[:64,-64:].tobytes(order='C')
+        #     s = s + self.data[-64:,:64].tobytes(order='C')
+        #     s = s + self.data[-64:,-64:].tobytes(order='C')
+        #     return hashlib.sha256(s).hexdigest()
 
         # if self.is_open() and self.checksum is None:
         #     self.checksum = hashlib.sha256(self.data.tobytes(order='C')).hexdigest()

@@ -255,8 +255,6 @@ class MainWindow(QMainWindow):
         Args:
             image: a QListWidgetItem or path string
         '''
-        import time
-        s = time.time()
         # save annotation when necessary
         self.annotationMgr.save()
         # load image and annotation
@@ -285,7 +283,6 @@ class MainWindow(QMainWindow):
             
         if image_load_success:
             self.annotationMgr.load_annotation(image_id)
-        print(time.time()-s)
         return image_load_success
         
     def open_project(self, filename=None):

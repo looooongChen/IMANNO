@@ -1,0 +1,75 @@
+{
+    "project_name": "test_project",
+    "images": [
+        {
+            "id": "00000006",
+            "annotation_path": "annotations\\00000006\\anno.hdf5",
+            "status": 0,
+            "ext": ".jpg",
+            "rel_path": false,
+            "checksum": "b1ce7cfdcce789629f48f7b7f49d62739d91ab4724c82d20fc5e96c9a97cb080",
+            "image_path": "D:\\IMANNO\\demo_images2\\qel-03875-10-005-k-el-image0.jpg",
+            "name": "qel-03875-10-005-k-el-image0"
+        },
+        {
+            "id": "00000000",
+            "annotation_path": "annotations\\00000000\\anno.hdf5",
+            "status": 0,
+            "ext": ".png",
+            "rel_path": false,
+            "checksum": "ade23ae97dda952479cdd9e95e4a73903197fab6d9b937d612c7886505bb900c",
+            "image_path": "D:\\IMANNO\\demo_images2\\Kremer P2 25 b 58.png",
+            "name": "Kremer P2 25 b 58"
+        },
+        {
+            "id": "00000003",
+            "annotation_path": "annotations\\00000003\\anno.hdf5",
+            "status": 0,
+            "ext": ".tif",
+            "rel_path": false,
+            "checksum": "3f8a7c0ecaea1e1ffbe9abb7ae06ebe761e3b14f8ab0dfe6d4e55b6d1594c4e9",
+            "image_path": "D:\\IMANNO\\demo_images2\\mcf-z-stacks-03212011_a06_s1_w12494d2f0-673e-4a15-aa25-91eaaf719526.tif",
+            "name": "mcf-z-stacks-03212011_a06_s1_w12494d2f0-673e-4a15-aa25-91eaaf719526"
+        },
+        {
+            "id": "00000001",
+            "annotation_path": "annotations\\00000001\\anno.hdf5",
+            "status": 0,
+            "ext": ".png",
+            "rel_path": false,
+            "checksum": "aef81c5a93e2a9d1b309ef173c30318dc3cb978f541368639ef9e7984835656d",
+            "image_path": "D:\\IMANNO\\demo_images\\Kremer P2 25 b 59.png",
+            "name": "Kremer P2 25 b 59"
+        },
+        {
+            "id": "00000004",
+            "annotation_path": "annotations\\00000004\\anno.hdf5",
+            "status": 0,
+            "ext": ".tif",
+            "rel_path": false,
+            "checksum": "78b48998ef0e1834f5fec2b4fa668888ed3f1c97225a363b12ff83d59e1d245d",
+            "image_path": "D:\\IMANNO\\demo_images2\\Teil_B_Pf_Feld_3.tif",
+            "name": "Teil_B_Pf_Feld_3"
+        },
+        {
+            "id": "00000002",
+            "annotation_path": "annotations\\00000002\\anno.hdf5",
+            "status": 0,
+            "ext": ".tif",
+            "rel_path": false,
+            "checksum": "2aa8ad13bb5aa28f93f4c34b2e512d98ef515915deaa406ac9034cd263e202b8",
+            "image_path": "D:\\IMANNO\\demo_images2\\layer400.tif",
+            "name": "layer400"
+        },
+        {
+            "id": "00000005",
+            "annotation_path": "annotations\\00000005\\anno.hdf5",
+            "status": 0,
+            "ext": ".tif",
+            "rel_path": false,
+            "checksum": "1e6de75527424774b8a25d60bc5a73b480a3894f638cf4012d35000e0d877022",
+            "image_path": "D:\\IMANNO\\demo_images2\\Teil_B_Pf_Feld_4.tif",
+            "name": "Teil_B_Pf_Feld_4"
+        }
+    ]
+}

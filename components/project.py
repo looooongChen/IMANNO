@@ -1,14 +1,14 @@
 import os
 import json
 from datetime import date
-from .image import Image
+from .image import compute_checksum, Image
 from .enumDef import *
 import glob
 import shutil
 from pathlib import Path
 from .func_annotation import *
 
-ITEM = {'id': None, 'checksum': None, 'rel_path': False, 'image_path': '', 'image_name': '', 'annotation_path': '', 'status': MARKER}
+ITEM = {'id': None, 'name': None, 'ext': None, 'checksum': None, 'image_path': None, 'rel_path': False, 'annotation_path': None, 'status': MARKER}
 
 class Project(object):
     def __init__(self, annotationMgr=None):
@@ -95,17 +95,16 @@ class Project(object):
     def add_image(self, image_path):
         if image_path not in self.index_id.keys():
             item = ITEM.copy()
-            item['id'] = '{:05d}'.format(self.idx)
+            item['id'] = '{:08d}'.format(self.idx)
             self.idx += 1
             # add image path
             self.set_item_image_path(item, image_path)
-            # add annotation path
-            anno_dir = os.path.join(self.project_dir, 'annotations', item['id'])
-            if not os.path.exists(anno_dir):
-                os.makedirs(anno_dir)
-            item['annotation_path'] = os.path.join('annotations', item['id'], 'anno.'+ANNOTATION_EXT)
             self.index_id[item['id']] = item
-            return item['id'], item['image_name']
+            # add annotation path
+            self.set_annotation_path(item['id'])
+            # set checksum
+            self.set_checksum(item['id'], item['image_path'])
+            return item['id'], item['name']
         else:
             return None, None
 
@@ -114,50 +113,22 @@ class Project(object):
             shutil.rmtree(os.path.join(self.project_dir, 'annotations', idx))
         if self.index_id[idx]['annotation_path'] == self.annotationMgr.annotation_file:
             self.annotationMgr.close()
-        check_sum = self.index_id[idx]['checksum']
+        # check_sum = self.index_id[idx]['checksum']
         del self.index_id[idx]
     
     def filenames(self, check_exist=False):
         fnames, ids, status, exist = [], [], [], []
         for idx, e in self.index_id.items():
             ids.append(idx)
-            fnames.append(e['image_name'])
+            fnames.append(e['name']+e['ext'])
             status.append(e['status'])
             if check_exist:
-                exist.append(self.get_item_image_path(e))
+                exist.append(os.path.exists(self.get_item_image_path(e)))
             else:
                 exist.append(True)
         return fnames, ids, status, exist
-    
-    def get_annotation_path(self, id):
-        if id in self.index_id.keys():
-            anno_path = os.path.join(self.project_dir, self.index_id[id]['annotation_path'])
-            if not os.path.exists(anno_path):
-                anno_dir = os.path.join(self.project_dir, 'annotations', id)
-                if not os.path.exists(anno_dir):
-                    os.makedirs(anno_dir)
-                self.index_id[id]['annotation_path'] = os.path.join('annotations', id, 'anno.'+ANNOTATION_EXT)
-            return anno_path
-        else:
-            return ''
 
-    def set_checksum(self, id, image):
-        '''
-        Args:
-            id: image item id
-            image: object of class components.image.Image
-        '''
-        self.index_id[id]['checksum'] = image.get_checksum()
-        # self.index_checksum[image.get_checksum()] = self.index_id[id]
-
-    def get_checksum(self, id):
-        return self.index_id[id]['checksum']
-
-    def set_status(self, id, status):
-        self.index_id[id]['status'] = status
-
-    def get_status(self, id):
-        return self.index_id[id]['status']
+    ## image path setter and getter
 
     def set_item_image_path(self, item, path):
         path = os.path.abspath(os.path.realpath(path))
@@ -165,7 +136,7 @@ class Project(object):
             item['rel_path'] = True
             path = os.path.relpath(path, start=self.project_dir)
         item['image_path'] = path
-        item['image_name'] = os.path.basename(path)
+        item['name'], item['ext'] = os.path.splitext(os.path.basename(path))
 
     def get_item_image_path(self, item):
         if item['rel_path']:
@@ -184,51 +155,115 @@ class Project(object):
             return None
     
     def get_image_name(self, id):
-        return self.index_id[id]['image_name']
+        if id in self.index_id.keys():
+            return self.index_id[id]['name'] + self.index_id[id]['ext'] 
+        else:
+            return None
+
+    ## annotation path setter and getter
+
+    def set_annotation_path(self, id):
+        if id in self.index_id.keys():
+            anno_dir = os.path.join(self.project_dir, 'annotations', id)
+            if not os.path.exists(anno_dir):
+                os.makedirs(anno_dir)
+            self.index_id[id]['annotation_path'] = os.path.join('annotations', id, 'anno.'+ANNOTATION_EXT)
     
-    def get_name_index(self):
-        index_name = {}
-        for _, item in self.index_id.items():
-            if item['image_name'] in index_name.keys():
-                index_name[item['image_name']].append(item)
+    def get_annotation_path(self, id):
+        if id in self.index_id.keys():
+            return os.path.join(self.project_dir, self.index_id[id]['annotation_path'])
+        else:
+            return None
+    
+    ## chechsum setter and getter
+    
+    def set_checksum(self, id, image):
+        '''
+        Args:
+            id: image item id
+            image: object of class components.image.Image / image path (string)
+        '''
+        if id in self.index_id.keys():
+            if isinstance(image, Image):
+                self.index_id[id]['checksum'] = image.get_checksum()
             else:
-                index_name[item['image_name']] = [item]
+                self.index_id[id]['checksum'] = compute_checksum(image)
+
+    def get_checksum(self, id):
+        return self.index_id[id]['checksum'] if id in self.index_id.keys() else None
+
+    ## status setter and getter
+
+    def set_status(self, id, status):
+        if id in self.index_id.keys():
+            self.index_id[id]['status'] = status
+
+    def get_status(self, id):
+        return self.index_id[id]['status'] if id in self.index_id.keys() else None
+
+    ## compute index
+    
+    def get_name_index(self, files=None, check_exist=False):
+        index_name = {}
+        if files is not None:
+            file_items = []
+            for f in files:
+                name, ext = os.path.splitext(os.path.basename(f))
+                item = ITEM.copy()
+                item['name'], item['ext'], item['image_path'] = name, ext, f
+                file_items.append(item)
+        else:
+            file_items = list(self.index_id.items)
+
+        for item in file_items:
+            if check_exist and not os.path.isfile(item['image_path']):
+                continue
+            if item['name'] in index_name.keys():
+                index_name[item['name']].append(item)
+            else:
+                index_name[item['name']] = [item]
+
         return index_name
     
-    def get_checksum_index(self):
+    def get_checksum_index(self, files=None, check_exist=False):
         index_checksum = {}
-        image = Image()
         for _, item in self.index_id.items():
             if item['checksum'] is None:
-                image.open(self.get_item_image_path(item))
-                self.set_checksum(item['id'], image)
-                image.close()
-            checksum = item['checksum']
+                self.set_checksum(item['id'], self.get_item_image_path(item))
             if item['checksum'] is not None:
                 if item['checksum'] in index_checksum.keys():
                     index_checksum[item['checksum']].append(item)
                 else:
                     index_checksum[item['checksum']] = [item]
         return index_checksum
+    
+    ## reimport images
 
     def reimport_image(self, folder):
         if os.path.exists(folder):
-            image = Image()
-            index_name = self.get_name_index()
+            # project item match imported file
             files = [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]
-            for f in files:
-                fname = os.path.basename(f)
-                if fname in index_name.keys():
-                    if len(index_name[fname]) == 1:
-                        self.set_image_path(index_name[fname][0]['id'], f)
+            index_name = self.get_name_index(files)
+            for _, item in self.index_id.items():
+                if os.path.isfile(item['image_path']):
+                    continue
+                name = item['name']
+                if name in index_name.keys():
+                    if len(index_name[name]) == 1:
+                        self.set_item_image_path(item, index_name[name][0]['image_path'])
                     else:
-                        image.open(f)
-                        checksum = image.get_checksum()
-                        image.close()
-                        for item in index_name[fname]['id']:
-                            if item['checksum'] == checksum:
-                                self.set_image_path(item['id'], f)
+                        if item['checksum'] is None:
+                            continue
+                        for candidate in index_name[name]:
+                            if candidate['checksum'] is None:
+                                candidate['checksum'] = compute_checksum(candidate['image_path'])
+                            if item['checksum'] == candidate['checksum']:
+                                self.set_item_image_path(item, candidate['image_path'])
+            # imported files match project files
+
     
+    ## check duplicates
+
     def check_duplicate(self):
         index_checksum = self.get_checksum_index()
         for items in index_checksum.values():
