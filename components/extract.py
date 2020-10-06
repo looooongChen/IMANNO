@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 import os
 import h5py
 import cv2
-from .graphDef import *
+from .enumDef import *
 import numpy as np
 import shutil
 IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']

@@ -1,0 +1,68 @@
+{
+    "project_name": "project_test2",
+    "images": [
+        {
+            "id": "00007",
+            "checksum": "3675f7cf015e9d92f111f3b9449c927174faf0b6ca8e6de5b0eff0407f103070",
+            "rel_path": true,
+            "image_path": "demo_images\\Kremer P2 25 b 58.png",
+            "image_name": "Kremer P2 25 b 58.png",
+            "annotation_path": "annotations\\00007\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00008",
+            "checksum": "4a4d605d6f630690df76d9bb4058ff445dbfc5b63dae2e5abe069ba61ae00c8b",
+            "rel_path": true,
+            "image_path": "demo_images\\Kremer P2 25 b 59.png",
+            "image_name": "Kremer P2 25 b 59.png",
+            "annotation_path": "annotations\\00008\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00009",
+            "checksum": "c35020473aed1b4642cd726cad727b63fff2824ad68cedd7ffb73c7cbd890479",
+            "rel_path": true,
+            "image_path": "demo_images\\layer400.tif",
+            "image_name": "layer400.tif",
+            "annotation_path": "annotations\\00009\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00010",
+            "checksum": "5fc68f821ddd63ebf9957c9de3003e36225f31fe6a83fc0b14cd3cb4b8ddc504",
+            "rel_path": true,
+            "image_path": "demo_images\\mcf-z-stacks-03212011_a06_s1_w12494d2f0-673e-4a15-aa25-91eaaf719526.tif",
+            "image_name": "mcf-z-stacks-03212011_a06_s1_w12494d2f0-673e-4a15-aa25-91eaaf719526.tif",
+            "annotation_path": "annotations\\00010\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00011",
+            "checksum": "e68b3f0f0e6da68b28085501f7d0fe89117d603740be2494682a35ca95a3ad25",
+            "rel_path": true,
+            "image_path": "demo_images\\Teil_B_Pf_Feld_3.tif",
+            "image_name": "Teil_B_Pf_Feld_3.tif",
+            "annotation_path": "annotations\\00011\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00012",
+            "checksum": "88e77b72ba4982aaa3625b614165774d30441f0a67ad713179290a0626a5111b",
+            "rel_path": true,
+            "image_path": "demo_images\\Teil_B_Pf_Feld_4.tif",
+            "image_name": "Teil_B_Pf_Feld_4.tif",
+            "annotation_path": "annotations\\00012\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00013",
+            "checksum": "5359437b22c8d34f95d1fe714310ad581663fb9d2d12fbfb51f6234fb4baf9e0",
+            "rel_path": true,
+            "image_path": "demo_images\\qel-03875-10-005-k-el-image0.jpg",
+            "image_name": "qel-03875-10-005-k-el-image0.jpg",
+            "annotation_path": "annotations\\00013\\anno.hdf5",
+            "status": 0
+        }
+    ]
+}

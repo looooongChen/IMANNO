@@ -57,6 +57,13 @@ Display channel (attribute):
 - objects displayed with different colors based on the labels of the selectes attribute channel
 - objecst without a label will be black 
 
+### Managing annotations as a project
+
+- merge two projects
+- check duplicates in the same project: 
+
+Note: conflict labels will be delete, so please make sure the lables are consitent
+
 ### Annotation formats
 
 Annotations are saved in .hdf5 file with the same name of the image. Some tools are provided to export the annotations as other formats.

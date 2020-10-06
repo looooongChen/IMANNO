@@ -27,7 +27,9 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionOpen"/>
+    <addaction name="actionProject"/>
+    <addaction name="actionOpenDirectory"/>
+    <addaction name="actionOpenFile"/>
     <addaction name="actionSave"/>
     <addaction name="separator"/>
     <addaction name="actionMask_Directory"/>
@@ -45,29 +47,32 @@
     <addaction name="actionLine"/>
     <addaction name="actionDot"/>
     <addaction name="actionDelete"/>
+    <addaction name="separator"/>
+    <addaction name="actionConvertAnnotations"/>
+    <addaction name="actionCleanNoisyAnnotations"/>
+    <addaction name="actionProjectToFileLocations"/>
+    <addaction name="actionFileLocationsToProject"/>
    </widget>
    <widget class="QMenu" name="menuLable">
     <property name="title">
-     <string>Lable</string>
+     <string>Label</string>
     </property>
-    <addaction name="actionImport_Label"/>
-    <addaction name="actionExport_Lbale"/>
-    <addaction name="actionLoad_Default"/>
-    <addaction name="actionSet_as_Default"/>
+    <addaction name="actionImportLabel"/>
+    <addaction name="actionExportLabel"/>
+    <addaction name="actionLoadDefault"/>
+    <addaction name="actionSetAsDefault"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
      <string>Tools</string>
     </property>
-    <addaction name="actionZoom_In"/>
-    <addaction name="actionZoom_Out"/>
-    <addaction name="actionNext_Image"/>
-    <addaction name="actionPrevious_Image"/>
-    <addaction name="actionAuto_Contrast"/>
+    <addaction name="actionZoomIn"/>
+    <addaction name="actionZoomOut"/>
+    <addaction name="actionNextImage"/>
+    <addaction name="actionPreviousImage"/>
+    <addaction name="actionAutoContrast"/>
     <addaction name="separator"/>
-    <addaction name="actionExport_Annotations"/>
-    <addaction name="actionClean_Noisy_Annotations"/>
-    <addaction name="actionScreen_Shot"/>
+    <addaction name="actionScreenShot"/>
    </widget>
    <widget class="QMenu" name="menuSetting">
     <property name="title">
@@ -76,7 +81,16 @@
     <addaction name="actionConfig"/>
     <addaction name="actionAbout"/>
    </widget>
+   <widget class="QMenu" name="menuProject">
+    <property name="title">
+     <string>Project</string>
+    </property>
+    <addaction name="actionProjectMerge"/>
+    <addaction name="actionProjectCheckDuplicate"/>
+    <addaction name="actionProjectReimport"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuProject"/>
    <addaction name="menuAnnotation"/>
    <addaction name="menuLable"/>
    <addaction name="menuTools"/>
@@ -93,13 +107,15 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionOpen"/>
+   <addaction name="actionProject"/>
+   <addaction name="actionOpenDirectory"/>
+   <addaction name="actionOpenFile"/>
    <addaction name="actionSave"/>
    <addaction name="separator"/>
-   <addaction name="actionZoom_In"/>
-   <addaction name="actionZoom_Out"/>
-   <addaction name="actionPrevious_Image"/>
-   <addaction name="actionNext_Image"/>
+   <addaction name="actionZoomIn"/>
+   <addaction name="actionZoomOut"/>
+   <addaction name="actionPreviousImage"/>
+   <addaction name="actionNextImage"/>
    <addaction name="separator"/>
    <addaction name="actionBrowse"/>
    <addaction name="actionPolygon"/>
@@ -110,27 +126,15 @@
    <addaction name="actionDot"/>
    <addaction name="actionDelete"/>
    <addaction name="separator"/>
-   <addaction name="actionSet_as_Default"/>
-   <addaction name="actionLoad_Default"/>
+   <addaction name="actionSetAsDefault"/>
+   <addaction name="actionLoadDefault"/>
    <addaction name="separator"/>
-   <addaction name="actionClean_Noisy_Annotations"/>
-   <addaction name="actionExport_Annotations"/>
-   <addaction name="actionScreen_Shot"/>
+   <addaction name="actionCleanNoisyAnnotations"/>
+   <addaction name="actionConvertAnnotations"/>
+   <addaction name="actionAutoContrast"/>
+   <addaction name="actionScreenShot"/>
    <addaction name="separator"/>
-   <addaction name="actionAuto_Contrast"/>
   </widget>
-  <action name="actionOpen">
-   <property name="icon">
-    <iconset>
-     <normaloff>../icons/open.png</normaloff>../icons/open.png</iconset>
-   </property>
-   <property name="text">
-    <string>Open</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+O</string>
-   </property>
-  </action>
   <action name="actionSave">
    <property name="icon">
     <iconset>
@@ -227,55 +231,55 @@
     <string>D</string>
    </property>
   </action>
-  <action name="actionImport_Label">
+  <action name="actionImportLabel">
    <property name="icon">
     <iconset>
      <normaloff>../icons/import.png</normaloff>../icons/import.png</iconset>
    </property>
    <property name="text">
-    <string>Import Label</string>
+    <string>Import Label List</string>
    </property>
   </action>
-  <action name="actionExport_Lbale">
+  <action name="actionExportLabel">
    <property name="icon">
     <iconset>
      <normaloff>../icons/export.png</normaloff>../icons/export.png</iconset>
    </property>
    <property name="text">
-    <string>Export Label</string>
+    <string>Export Label List</string>
    </property>
   </action>
-  <action name="actionLoad_Default">
+  <action name="actionLoadDefault">
    <property name="icon">
     <iconset>
      <normaloff>../icons/load_label.png</normaloff>../icons/load_label.png</iconset>
    </property>
    <property name="text">
-    <string>Load Default</string>
+    <string>Load Default Label List</string>
    </property>
   </action>
-  <action name="actionSet_as_Default">
+  <action name="actionSetAsDefault">
    <property name="icon">
     <iconset>
      <normaloff>../icons/pin_label.png</normaloff>../icons/pin_label.png</iconset>
    </property>
    <property name="text">
-    <string>Set as Default</string>
+    <string>Set as Default Label List</string>
    </property>
   </action>
-  <action name="actionExport_Annotations">
+  <action name="actionConvertAnnotations">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/export_annotation.png</normaloff>../icons/export_annotation.png</iconset>
+     <normaloff>../icons/convert.png</normaloff>../icons/convert.png</iconset>
    </property>
    <property name="text">
-    <string>Export Annotations</string>
+    <string>Convert Annotations</string>
    </property>
   </action>
-  <action name="actionClean_Noisy_Annotations">
+  <action name="actionCleanNoisyAnnotations">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/clean_annotation.png</normaloff>../icons/clean_annotation.png</iconset>
+     <normaloff>../icons/clear.png</normaloff>../icons/clear.png</iconset>
    </property>
    <property name="text">
     <string>Clean Noisy Annotations</string>
@@ -299,7 +303,7 @@
     <string>Import Mask</string>
    </property>
   </action>
-  <action name="actionZoom_In">
+  <action name="actionZoomIn">
    <property name="icon">
     <iconset>
      <normaloff>../icons/zoom_in.png</normaloff>../icons/zoom_in.png</iconset>
@@ -311,7 +315,7 @@
     <string>Ctrl+A</string>
    </property>
   </action>
-  <action name="actionZoom_Out">
+  <action name="actionZoomOut">
    <property name="icon">
     <iconset>
      <normaloff>../icons/zoom_out.png</normaloff>../icons/zoom_out.png</iconset>
@@ -323,7 +327,7 @@
     <string>Ctrl+Z</string>
    </property>
   </action>
-  <action name="actionNext_Image">
+  <action name="actionNextImage">
    <property name="icon">
     <iconset>
      <normaloff>../icons/next.png</normaloff>../icons/next.png</iconset>
@@ -335,7 +339,7 @@
     <string>Ctrl+N</string>
    </property>
   </action>
-  <action name="actionPrevious_Image">
+  <action name="actionPreviousImage">
    <property name="icon">
     <iconset>
      <normaloff>../icons/previous.png</normaloff>../icons/previous.png</iconset>
@@ -359,7 +363,7 @@
     <string>Del</string>
    </property>
   </action>
-  <action name="actionScreen_Shot">
+  <action name="actionScreenShot">
    <property name="icon">
     <iconset>
      <normaloff>../icons/screenshot.png</normaloff>../icons/screenshot.png</iconset>
@@ -368,7 +372,7 @@
     <string>Screen Shot</string>
    </property>
   </action>
-  <action name="actionAuto_Contrast">
+  <action name="actionAutoContrast">
    <property name="checkable">
     <bool>true</bool>
    </property>
@@ -396,6 +400,81 @@
    </property>
    <property name="text">
     <string>About</string>
+   </property>
+  </action>
+  <action name="actionProject">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/project.png</normaloff>../icons/project.png</iconset>
+   </property>
+   <property name="text">
+    <string>New/Open Project</string>
+   </property>
+  </action>
+  <action name="actionOpenDirectory">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/directory.png</normaloff>../icons/directory.png</iconset>
+   </property>
+   <property name="text">
+    <string>Open Directory</string>
+   </property>
+  </action>
+  <action name="actionOpenFile">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/file.png</normaloff>../icons/file.png</iconset>
+   </property>
+   <property name="text">
+    <string>Open File</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="actionProjectMerge">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/merge.png</normaloff>../icons/merge.png</iconset>
+   </property>
+   <property name="text">
+    <string>Merge Project</string>
+   </property>
+  </action>
+  <action name="actionProjectCheckDuplicate">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/duplication.png</normaloff>../icons/duplication.png</iconset>
+   </property>
+   <property name="text">
+    <string>Check Duplicate</string>
+   </property>
+  </action>
+  <action name="actionProjectReimport">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/import_image.png</normaloff>../icons/import_image.png</iconset>
+   </property>
+   <property name="text">
+    <string>Reimport Images</string>
+   </property>
+  </action>
+  <action name="actionProjectToFileLocations">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/distribute.png</normaloff>../icons/distribute.png</iconset>
+   </property>
+   <property name="text">
+    <string>Project to File Locations</string>
+   </property>
+  </action>
+  <action name="actionFileLocationsToProject">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/collect.png</normaloff>../icons/collect.png</iconset>
+   </property>
+   <property name="text">
+    <string>File Locations to Project</string>
    </property>
   </action>
  </widget>

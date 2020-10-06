@@ -1,605 +1,77 @@
-from PyQt5 import uic
-from PyQt5.QtCore import Qt, QRectF, QPointF, QSizeF, QLineF
-from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform, QPainter, \
-            QPixmap, QIcon, QTransform, QPainterPath  
-from PyQt5.QtWidgets import QApplication, QColorDialog, QDialog, \
-    QMainWindow, QDockWidget, QListWidgetItem, QUndoCommand, \
-    QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem, QGraphicsPathItem
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPen, QBrush, QColor
+from PyQt5.QtWidgets import QGraphicsScene, QMessageBox  
 from datetime import datetime as datim
-import numpy as np
+from .project import Project
+from .labelDisp import LabelDispDock
 import h5py
-import sys
-import math
+import os
 
-
-from abc import ABC, abstractmethod
-
-from .graphDef import *
-
-__author__ = 'bug, long'
-
-
-#######################
-#### label classes ####
-#######################
-
-class Label(object):
-
-    def __init__(self, attr, label_name, color=None):
-        self.attr = attr
-        self.attr_name = attr.attr_name
-        self.label_name = label_name
-        self.color = color
-
-    def set_color(self, r, g, b):
-        self.color = [r,g,b]
-
-    def rename(self, name):
-        assert isinstance(name, str)
-        if name not in (self.attr.labels.keys()):
-            self.label_name = name
-
-class Attribute(object):
-
-    def __init__(self, attr_name, label_list=None):
-        """
-        constructor of Attribute class
-        Args:
-            name: name of the attribute
-            label_list: a list of label names e.g. ['label1', 'label2' ...]
-        """
-        self.attr_name = attr_name
-        self.labels = {} # label_name - label_object
-
-        if label_list is not None:
-            self.add_label_list(label_list)
-
-    def add_label_list(self, label_list):
-        existing_labels = list(self.labels.keys())
-        for label in label_list:
-            if label not in existing_labels:
-                self.labels[label] = Label(self, label)
-
-    def add_label(self, label_name, label_color = None):
-        existing_labels = list(self.labels.keys())
-        if label_name not in existing_labels:
-            self.labels[label_name] = Label(self, label_name, label_color)
-
-    def remove_label(self, label):
-        if isinstance(label, Label):
-            del self.labels[label.label_name]
-        else:
-            del self.labels[label_name]
-
-    def get_label(self, label_name):
-        if label_name in list(self.labels.keys()):
-            return self.labels[label_name]
-        return None
-
-    def rename(self, name):
-        assert isinstance(name, str)
-        self.attr_name = name
-
-    def save(self, location):
-        """
-        save the attributes and its labels
-        Args:
-            location: a hdf5 root
-        Returns: none
-        """
-        attr_group = location.require_group('attributes')
-        if self.attr_name in attr_group.keys():
-            del attr_group[self.attr_name]
-        label_group = attr_group.create_group(self.attr_name)
-        for label_name, label_obj in self.labels.items():
-            label_group.create_dataset(label_name, shape=(3,), dtype='uint8')
-            label_group[label_name][0] = label_obj.color[0]
-            label_group[label_name][1] = label_obj.color[1]
-            label_group[label_name][2] = label_obj.color[2]
-
-
-
-############################
-#### annotation classes ####
-############################
-
-class Annotation(object):
-
-    """
-    class that contains the data of an annotation, graph item is kept in Annotation manage, they have the same timestamp
-    """
-
-    def __init__(self, timestamp, dataObject, type, scale_factor=(1,1), **kwargs):
-        self.type = type
-        self.timestamp = timestamp
-        if scale_factor[0] != 1 or scale_factor[1] != 1:
-            self.dataObject = self.process_dataObject(dataObject, scale_factor)
-        else:
-            self.dataObject = dataObject
-        self.graphObject = None
-        self.labels = []
-
-    def add_label(self, label_obj):
-        """
-        add a certain label
-        Args:
-            label: an Label object
-        Returns: none
-        """
-        for i in range(len(self.labels)):
-            if self.labels[i].attr_name == label_obj.attr_name:
-                del self.labels[i]
-                break
-        self.labels.append(label_obj)
-
-    def remove_label(self, label_obj):
-        try:
-            index = self.labels.index(label_obj)
-            del self.labels[index]
-        except Exception as e:
-            return
-
-    @abstractmethod
-    def process_dataObject(self, dataObject, scale_factor):
-        pass
-    
-    @abstractmethod
-    def save_dataObject(self, location):
-        """
-        an abstract function
-        save the data of an Annotation(the data may be different for different kinds of dataObjects),
-        must be implemented in subclass
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        pass
-
-    def save_labels(self, location):
-        """
-        save labels related to as Annotaion
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-        Returns: none
-
-        """
-        if 'labels' in list(location.keys()):
-            del location['labels']
-        label_group = location.require_group('labels')
-        for label in self.labels:
-            label_group.require_group(label.attr_name)
-            label_group[label.attr_name].attrs['label_name'] = label.label_name
-
-    def save(self, location):
-        """
-        save all information of an annotation
-        Args:
-            location: a hdf5 roof
-
-        Returns: none
-        """
-        # get the 'folder' to save the annotation, named by the timestamp
-        annotation = location.require_group('/annotations/' + self.timestamp)
-        # add attributes
-        annotation.attrs['type'] = self.type
-        annotation.attrs['timestamp'] = self.timestamp
-        # save data
-        self.save_dataObject(annotation)
-        # save labels
-        self.save_labels(annotation)
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject, which contains data of a certrain annotation type
-        """
-        pass
-
-    @classmethod
-    def load(cls, location, attr_group, **kwargs):
-        """
-        load data from a hdf5 group and return an Annotation object
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-            attr_group: a group of Attribute objects, saved as a dict (attr_name - attr_obj)
-        Returns: an Annotation object
-        """
-        timestamp = location.attrs['timestamp']
-        dataObject = cls._load_annotation(location)
-        if dataObject is not None:
-            annotation = cls(timestamp, dataObject, (1,1), **kwargs)
-
-            if 'labels' in location.keys():
-                for attr_name in location['labels'].keys():
-                    if attr_name in attr_group.keys():
-                        label_name = location['labels'][attr_name].attrs['label_name']
-                        annotation.add_label(attr_group[attr_name].get_label(label_name))
-                    else:
-                        print("Warning: object label not found in the attribute group!")
-            return annotation
-        else:
-            print("Warning: damaged annotation, will be cleaned after next save")
-            return None
-
-    @abstractmethod
-    def get_graphObject(self, scale_factor):
-        """
-        an method to return the graph object,
-        notice that graphObject and dataObject may be different in some cases
-        in that case the method should be overwritten
-        :return: graphObject
-        """
-        pass
-
-class PointAnnotation(Annotation):
-
-    def __init__(self, timestamp, pt, scale_factor=(1,1), radius=2):
-        """
-        constructor of PointAnnotation
-        Args:
-            timestamp: time stamp
-            polygon: a QPolygonF object
-        """
-        self.radius = radius
-        super().__init__(timestamp, pt, POINT, scale_factor)
-
-    def process_dataObject(self, dataObject, scale_factor):
-        dataObject[0] = dataObject[0]/scale_factor[0]
-        dataObject[1] = dataObject[1]/scale_factor[1]
-        return dataObject
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'pt' not in location.keys():
-            location.create_dataset('pt', shape=(2,), data=self.dataObject)
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            return np.array([location['pt'][0], location['pt'][1]])
-        except Exception as e:
-            print('An exception occurred while loading a polygon: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor):
-        bbx = QRectF()
-        bbx.setTopLeft(QPointF(self.dataObject[0]*scale_factor[0]-self.radius, self.dataObject[1]*scale_factor[1] -self.radius))
-        bbx.setSize(QSizeF(self.radius*2, self.radius*2))
-        ellipse = QGraphicsEllipseItem(bbx)
-        self.graphObject = ellipse
-        return self.graphObject
-
-class LineAnnotation(Annotation):
-
-    def __init__(self, timestamp, line, scale_factor=(1,1)):
-        """
-        constructor of LineAnnotation
-        Args:
-            timestamp: time stamp
-            line: a nx2 numpy containing coordinated of the line
-        """
-        super().__init__(timestamp, line, LINE, scale_factor)
-    
-    def process_dataObject(self, dataObject, scale_factor):
-        dataObject[:,0] = dataObject[:,0]/scale_factor[0]
-        dataObject[:,1] = dataObject[:,1]/scale_factor[1]
-        return dataObject
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'boundingBox' not in location.keys():
-            # print('saved', self._get_boundingBox())
-            bbx = self._get_boundingBox()
-            location.create_dataset('boundingBox', shape=(4,), data=bbx)
-
-        if 'line' not in location.keys():
-            pts = np.stack([self.dataObject[:,0]-bbx[0], self.dataObject[:,1]-bbx[1]], axis=1)
-            location.create_dataset('line', shape=self.dataObject.shape, data=pts)
-
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            bbx = location['boundingBox']
-            line = np.stack([location['line'][:,0]+bbx[0], location['line'][:,1]+bbx[1]], axis=1)
-            return line
-        except Exception as e:
-            print('An exception occurred while loading a line: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor):
-        line = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
-        path = QPainterPath()
-        path.addPolygon(line)
-        self.graphObject = QGraphicsPathItem(path)
-        return self.graphObject
-
-    def _get_boundingBox(self):
-        """
-        get the bounding box of a polygon
-        Returns: a numpy arrary [x, y, width, height]
-        """
-        originalRect = QRectF(self.graphObject.boundingRect())
-        bbx = np.zeros((4,))
-        bbx[0] = originalRect.x()
-        bbx[1] = originalRect.y()
-        bbx[2] = originalRect.width()
-        bbx[3] = originalRect.height()
-        return bbx
-
-class PolygonAnnotation(Annotation):
-
-    def __init__(self, timestamp, polygon, scale_factor=(1,1)):
-        """
-        constructor of PolygonAnnotation
-        Args:
-            timestamp: time stamp
-            polygon: a nx2 numpy containing coordinated of the polygon
-        """
-        super().__init__(timestamp, polygon, POLYGON, scale_factor)
-    
-    def process_dataObject(self, dataObject, scale_factor):
-        dataObject[:,0] = dataObject[:,0]/scale_factor[0]
-        dataObject[:,1] = dataObject[:,1]/scale_factor[1]
-        return dataObject
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'boundingBox' not in location.keys():
-            # print('saved', self._get_boundingBox())
-            bbx = self._get_boundingBox()
-            location.create_dataset('boundingBox', shape=(4,), data=bbx)
-
-        if 'polygon' not in location.keys():
-            pts = np.stack([self.dataObject[:,0]-bbx[0], self.dataObject[:,1]-bbx[1]], axis=1)
-            location.create_dataset('polygon', shape=self.dataObject.shape, data=pts)
-
-
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            bbx = location['boundingBox']
-            polygon = np.stack([location['polygon'][:,0]+bbx[0], location['polygon'][:,1]+bbx[1]], axis=1)
-            return polygon
-        except Exception as e:
-            print('An exception occurred while loading a polygon: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor):
-        polygon = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
-        self.graphObject = QGraphicsPolygonItem(polygon)
-        return self.graphObject
-
-    def _get_boundingBox(self):
-        """
-        get the bounding box of a polygon
-        Returns: a numpy arrary [x, y, width, height]
-        """
-        originalRect = QRectF(self.graphObject.boundingRect())
-        bbx = np.zeros((4,))
-        bbx[0] = originalRect.x()
-        bbx[1] = originalRect.y()
-        bbx[2] = originalRect.width()
-        bbx[3] = originalRect.height()
-        return bbx
-
-class BBXAnnotation(Annotation):
-
-    def __init__(self, timestamp, bbx, scale_factor=(1,1)):
-        """
-        constructor of PolygonAnnotation
-        Args:
-            timestamp: time stamp
-            polygon: a QRectF object
-        """
-        super().__init__(timestamp, bbx, BBX, scale_factor)
-    
-    def process_dataObject(self, dataObject, scale_factor):
-        dataObject[0] = dataObject[0]/scale_factor[0]
-        dataObject[1] = dataObject[1]/scale_factor[1]
-        dataObject[2] = dataObject[2]/scale_factor[0]
-        dataObject[3] = dataObject[3]/scale_factor[1]
-        return dataObject
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'boundingBox' not in location.keys():
-            # location.create_dataset('boundingBox', shape=(4,), data=self._get_boundingBox())
-            location.create_dataset('boundingBox', shape=(4,), data=self.dataObject)
-
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            bbx = location['boundingBox'].value
-            # boundingBox = QRectF(bbx[0], bbx[1], bbx[2], bbx[3])
-            return bbx
-        except Exception as e:
-            print('An exception occurred while loading a boundingBox: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor):
-        bbx = QRectF()
-        bbx.setTopLeft(QPointF(self.dataObject[0]*scale_factor[0], self.dataObject[1]*scale_factor[1]))
-        bbx.setSize(QSizeF(self.dataObject[2]*scale_factor[0], self.dataObject[3]*scale_factor[1]))
-        self.graphObject = QGraphicsRectItem(bbx)
-        return self.graphObject
-
-class OVALAnnotation(Annotation):
-
-    def __init__(self, timestamp, paras, scale_factor):
-        """
-        constructor of PolygonAnnotation
-        Args:
-            timestamp: time stamp
-            polygon: a QRectF object
-        """
-        super().__init__(timestamp, paras, OVAL, scale_factor)
-    
-    def process_dataObject(self, dataObject, scale_factor):
-
-        axis_major = dataObject['axis'][0]
-        axis_minor = dataObject['axis'][1]
-        c = math.cos(math.radians(dataObject['angle']))
-        s = math.sin(math.radians(dataObject['angle']))
-        axis_major = math.sqrt((axis_major * c / scale_factor[0]) ** 2 + (axis_major * s / scale_factor[1]) ** 2)
-        axis_minor = math.sqrt((axis_minor * s / scale_factor[0]) ** 2 + (axis_minor * c / scale_factor[1]) ** 2)
-        dataObject['axis'][0] = axis_major
-        dataObject['axis'][1] = axis_minor
-
-        dataObject['center'][0] = dataObject['center'][0] / scale_factor[0]
-        dataObject['center'][1] = dataObject['center'][1] / scale_factor[1]
-
-        return dataObject
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-
-
-        if 'center' not in location.keys():
-            # location.create_dataset('center', shape=(2,), data=self._getCenter())
-            location.create_dataset('center', shape=(2,), data=self.dataObject['center'])
-        if 'angle' not in location.keys():
-            # location.create_dataset('angle', shape=(1,), data=self._getAngle())
-            location.create_dataset('angle', shape=(1,), data=self.dataObject['angle'])
-        if 'axis' not in location.keys():
-            # location.create_dataset('axis', shape=(2,), data=self._getAxis())
-            location.create_dataset('axis', shape=(2,), data=self.dataObject['axis'])
-
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a graphObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a graphObject
-        """
-        try:
-            paras = {}
-            paras['center'] = location['center'].value
-            paras['angle'] = location['angle'].value
-            paras['axis'] = location['axis'].value
-            return paras
-        except Exception as e:
-            print('An exception occurred while loading a ellipse: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor):
-        bbx = QRectF()
-
-        axis_major = self.dataObject['axis'][0]
-        axis_minor = self.dataObject['axis'][1]
-        c = math.cos(math.radians(self.dataObject['angle']))
-        s = math.sin(math.radians(self.dataObject['angle']))
-        axis_major = math.sqrt((axis_major * c * scale_factor[0]) ** 2 + (axis_major * s * scale_factor[1]) ** 2)
-        axis_minor = math.sqrt((axis_minor * s * scale_factor[0]) ** 2 + (axis_minor * c * scale_factor[1]) ** 2)
-
-        bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
-        bbx.setSize(QSizeF(axis_minor, axis_major))
-        ellipse = QGraphicsEllipseItem(bbx)
-
-        t = QTransform()
-        t.translate(self.dataObject['center'][0]*scale_factor[0], self.dataObject['center'][1]*scale_factor[1])
-        t.rotate(-1 * self.dataObject['angle'] + 90)
-        ellipse.setTransform(t)
-
-        self.graphObject = ellipse
-        return self.graphObject
-
-
-#####################################################
-#### area under construction, but already in use ####
-#####################################################
-
+from .annotations import *
 
 class AnnotationManager(object):
-    def __init__(self, config):
+    def __init__(self, config, project=None, scene=None, labelDisp=None):
 
         self.config = config
-        self.scene = None
-
         self.attributes = {} # name - Attribute object
         self.annotations = {} # timestamp - Annotation object
 
-        #### variables about the status ####
-        self.needsSave = False
+        self.set_project(project)
+        self.set_scene(scene)
+        self.set_labelDisp(labelDisp)
 
+        self.saved = True # save status
+        self.annotation_file = None
+
+    def set_project(self, project):
+        if isinstance(project, Project):
+            self.project = project
+            self.project.set_annotationMgr(self) 
+        else:
+            self.project = None
 
     def set_scene(self, scene):
-        self.scene = scene
+        if isinstance(scene, QGraphicsScene):
+            self.scene = scene
+            self.scene.set_annotationMgr(self)  
+        else: 
+            self.scene = None
+
+    def set_labelDisp(self, labelDisp):
+        if isinstance(labelDisp, LabelDispDock):
+            self.labelDisp = labelDisp
+            self.labelDisp.set_annotationMgr(self)
+        else:
+            self.labelDisp = None
+
+
+    ##############################################
+    #### annotation file seaching and opening ####
+    ##############################################
+
+    def get_annotation_file(self, image_id, mode='project'):
+        '''
+        Args:
+            image_id: image identifer, it will be the series number in 'project' mode, file path in 'file' mode
+            mode: 'project' or 'file'
+        '''
+        if mode == 'project' and self.project.is_open():
+            self.annotation_file = self.project.get_annotation_path(image_id)
+        else:
+            currentDir = os.path.dirname(image_id)
+            basefilename, _ = os.path.splitext(os.path.basename(image_id))
+            self.annotation_file = os.path.join(currentDir, basefilename + '.hdf5')
+        return self.annotation_file
+    
+    def load_annotation(self, image_id):
+        if self.project.is_open():
+            self.annotation_file = self.get_annotation_file(image_id, mode='project')
+        else:
+            self.annotation_file = self.get_annotation_file(image_id, mode='file')
+        self.load(self.annotation_file)
+        self.scene.add_graphItems()
+        self.scene.refresh()
+        self.labelDisp.refresh()
 
     ############################
     #### method for add new ####
@@ -610,7 +82,7 @@ class AnnotationManager(object):
             self.attributes[attr_name] = Attribute(attr_name, label_list)
         else:
             print("Attribute has existed!")
-        self.needsSave = True
+        self.saved = False
 
     def new_label(self, attr_name, label_name, label_color=None):
         if attr_name in self.attributes.keys():
@@ -625,38 +97,25 @@ class AnnotationManager(object):
             timestamp = datim.today().isoformat('@')
 
         if type == POLYGON:
-            annotation = PolygonAnnotation(timestamp, dataObject, self.config['scale_factor'])
+            annotation = PolygonAnnotation(timestamp, dataObject)
         elif type == BBX:
-            annotation = BBXAnnotation(timestamp, dataObject, self.config['scale_factor'])
+            annotation = BBXAnnotation(timestamp, dataObject)
         elif type == OVAL:
-            annotation = OVALAnnotation(timestamp, dataObject, self.config['scale_factor'])
+            annotation = OVALAnnotation(timestamp, dataObject)
         elif type == POINT:
-            annotation = PointAnnotation(timestamp, dataObject, self.config['scale_factor'], radius=self.config["DotAnnotationRadius"])
+            annotation = PointAnnotation(timestamp, dataObject)
         elif type == LINE:
-            annotation = LineAnnotation(timestamp, dataObject, self.config['scale_factor'])
+            annotation = LineAnnotation(timestamp, dataObject)
         else:
             print("Unknown annotation type")
 
         self.add_annotation(annotation, self.config['display_channel'])
-        self.needsSave = True
-
-    def add_graphItem(self, annotation, display_channel=None):
-        if self.scene:
-            pen, brush = self.appearance(annotation, display_channel)
-            graphObj = annotation.get_graphObject(self.config['scale_factor'])
-            graphObj.setPen(pen)
-            graphObj.setBrush(brush)
-            self.scene.addItem(graphObj)
+        self.saved = False
     
     def add_annotation(self, annotation, display_channel=None):
         self.annotations[annotation.timestamp] = annotation
-        self.add_graphItem(annotation, display_channel)
+        self.scene.add_graphItem(annotation, display_channel)
 
-    def add_existing_graphItems(self, display_channel=None):
-        if self.scene:
-            self.scene.clear_items()
-            for _, annotation in self.annotations.items():
-                self.add_graphItem(annotation, display_channel)
 
     def add_label_to_selected_annotations(self, label_name, attr_name):
 
@@ -669,7 +128,7 @@ class AnnotationManager(object):
             for annotation in annotations:
                 label_obj = self.attributes[attr_name].labels[label_name]
                 annotation.add_label(label_obj)
-            self.needsSave = True
+            self.saved = False
 
     ############################
     #### methods for get ####
@@ -698,7 +157,7 @@ class AnnotationManager(object):
         del self.annotations[timestamp]
         if self.scene:
             self.scene.removeItem(graphItem)
-        self.needsSave = True
+        self.saved = False
 
     def remove_label(self, label, attr_name=None):
         if attr_name is None:
@@ -712,7 +171,7 @@ class AnnotationManager(object):
         self._remove_label_from_all_annotations(label_obj)
         self.attributes[attr_name].remove_label(label_obj)
 
-        self.needsSave = True
+        self.saved = False
 
     def remove_label_from_selected_annotation(self, label_name, attr_name):
         if attr_name not in (self.attributes.keys()):
@@ -724,7 +183,7 @@ class AnnotationManager(object):
             annotation = annotations[0]
             label_obj = self.attributes[attr_name].labels[label_name]
             annotation.remove_label(label_obj)
-            self.needsSave = True
+            self.saved = False
 
     def remove_attr(self, attr):
         if isinstance(attr, Attribute):
@@ -739,7 +198,7 @@ class AnnotationManager(object):
             self._remove_label_from_all_annotations(label_obj)
         del self.attributes[attr_name]
 
-        self.needsSave = True
+        self.saved = False
 
     def _remove_label_from_all_annotations(self, label_obj):
         for timestamp in self.annotations.keys():
@@ -750,41 +209,47 @@ class AnnotationManager(object):
     ############################
 
     def rename_label(self, name, label, attr_name=None):
-        if attr_name is None:
-            assert isinstance(label, Label)
-            label_name = label.label_name
+        if isinstance(label, Label):
             label.rename(name)
-        elif attr_name in list(self.attributes.keys()):
-            label_name = label
-            self.attributes[attr_name].get_label(label).rename(name)
-        self.attributes[attr_name].labels[name] = self.attributes[attr_name].labels.pop(label_name)
-
-        self.needsSave = True
+        elif attr_name in self.attributes.keys():
+            label = self.attributes[attr_name].get_label(label)
+            if label is not None:
+                label.rename(name)
+        self.saved = False
 
     def rename_attr(self, name, attr):
-        if name in list(self.attributes.keys()):
-            return
-        if isinstance(attr, Attribute):
-            attr_name = attr.attr_name
-            attr_obj = attr
-        elif attr in list(self.attributes.keys()):
-            attr_name = attr
-            attr_obj = self.attributes[attr]
-        else:
-            return
-        attr_obj.rename(name)
-        self.attributes[name] = self.attributes.pop(attr_name)
-        for label in self.attributes[name].labels.values():
-            label.attr_name = name
+        if name not in self.attributes.keys():
+            if isinstance(attr, Attribute):
+                attr_obj = attr.rename(name)
+                self.attributes[name] = self.attributes.pop(attr.attr_name)
+                self.saved = False
+            elif attr in self.attributes.keys():
+                self.attributes[attr].rename(name)
+                self.attributes[name] = self.attributes.pop(attr)
+                self.saved = False
 
-        self.needsSave = True
 
     ##################################
     #### method for save and load ####
     ##################################
 
+    def close(self):
+        self.attributes = {} 
+        self.annotations = {}
+        self.saved = True
+        self.annotation_file = None
+
+    def save(self, inquiry=True):
+        if not self.saved:
+            save = QMessageBox.Yes == QMessageBox.question(None, "Important...", "Would you like to save the changes in your annotations?", QMessageBox.Yes | QMessageBox.No) if inquiry else True
+            if save and self.annotation_file is not None:
+                self.save_to_file(self.annotation_file)
+                self.annotation_file = None
+
     def save_to_file(self, filename):
 
+        if self.saved is True:
+            return
         if filename is None:
             return
 
@@ -808,10 +273,11 @@ class AnnotationManager(object):
             location.flush()
             location.close()
 
-        self.needsSave = False
+        self.saved = True
 
 
-    def load_from_file(self, filename):
+    def load(self, filename):
+        self.saved = True
         self.attributes.clear()
         self.annotations.clear()
 
@@ -852,7 +318,7 @@ class AnnotationManager(object):
         elif type == OVAL:
             return OVALAnnotation.load(location, attr_group)
         elif type == POINT:
-            return PointAnnotation.load(location, attr_group, radius=self.config["DotAnnotationRadius"])
+            return PointAnnotation.load(location, attr_group)
         elif type == LINE:
             return LineAnnotation.load(location, attr_group)
         else:

@@ -1,0 +1,68 @@
+{
+    "project_name": "project_test",
+    "images": [
+        {
+            "id": "00000",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\Kremer P2 25 b 58.png",
+            "image_name": "Kremer P2 25 b 58.png",
+            "annotation_path": "annotations\\00000\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00001",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\Kremer P2 25 b 59.png",
+            "image_name": "Kremer P2 25 b 59.png",
+            "annotation_path": "annotations\\00001\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00002",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\layer400.tif",
+            "image_name": "layer400.tif",
+            "annotation_path": "annotations\\00002\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00003",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\mcf-z-stacks-03212011_a06_s1_w12494d2f0-673e-4a15-aa25-91eaaf719526.tif",
+            "image_name": "mcf-z-stacks-03212011_a06_s1_w12494d2f0-673e-4a15-aa25-91eaaf719526.tif",
+            "annotation_path": "annotations\\00003\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00004",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\Teil_B_Pf_Feld_3.tif",
+            "image_name": "Teil_B_Pf_Feld_3.tif",
+            "annotation_path": "annotations\\00004\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00005",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\Teil_B_Pf_Feld_4.tif",
+            "image_name": "Teil_B_Pf_Feld_4.tif",
+            "annotation_path": "annotations\\00005\\anno.hdf5",
+            "status": 0
+        },
+        {
+            "id": "00006",
+            "checksum": null,
+            "rel_path": true,
+            "image_path": "demo_images\\qel-03875-10-005-k-el-image0.jpg",
+            "image_name": "qel-03875-10-005-k-el-image0.jpg",
+            "annotation_path": "annotations\\00006\\anno.hdf5",
+            "status": 0
+        }
+    ]
+}

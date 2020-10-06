@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QDialog, QFileDialog, QProgressBar
 import os
 import h5py
 import cv2
-from .graphDef import *
+from .enumDef import *
 import numpy as np
 IMAGE_FORMATS = ['jpg', 'jpeg', 'tif', 'tiff', 'png']
 

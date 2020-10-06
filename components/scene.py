@@ -1,15 +1,17 @@
 # from PyQt5.QtGui import *
 from PyQt5 import QtCore
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent, QGraphicsPathItem
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent, QGraphicsPathItem, QGraphicsView
 from PyQt5.QtGui import QImage, QPixmap, QTransform
 import numpy as np
-from PIL import Image
+# from PIL import Image
 
+from .image import Image
 from .livewire import Livewire
 from .commands import *
-from .graphDef import *
-from .annotationManager import Annotation
+from .enumDef import *
+from .annotations import Annotation
+# from .annotationManager import AnnotationManager
 
 class Scene(QGraphicsScene):
 
@@ -23,28 +25,25 @@ class Scene(QGraphicsScene):
     # polygonPainter = 1
     # circlePainter = 2
 
-    def __init__(self, config, parent=None):
+    def __init__(self, config, image, canvas, annotationMgr=None, parent=None):
+        
         super().__init__(parent=parent)
         self.config = config
-        # background image
-        self.image = np.asarray(Image.open('icons/startscreen.png'))
-        self.bgImage = QImage('icons/startscreen.png')
-        self.bgPixmap = self.addPixmap(QPixmap.fromImage(self.bgImage))
-
-        # components
         self.annotationMgr = None
-        self.scene = None
+        self.image = None
         self.canvas = None
+        self.bgPixmap = self.addPixmap(QPixmap.fromImage(QImage('icons/startscreen.png')))
         self.livewire = Livewire()
 
+        self.set_image(image)
+        self.set_canvas(canvas)
+        self.set_annotationMgr(annotationMgr)
         # run-time stack
         self.selectedItems = []
-
         # run-time status
+        self.tool = BROWSE
         self.drawing = False
-        self.tool = None
         self.currentCommand = None
-
         # time part
         # error occurs when pass event through signal
         self.time = None
@@ -52,68 +51,82 @@ class Scene(QGraphicsScene):
         self.clickBtn = None
 
     def set_annotationMgr(self, annotationMgr):
+        # self.annotationMgr = annotationMgr if isinstance(annotationMgr, AnnotationManager) else None
         self.annotationMgr = annotationMgr
 
+    def set_image(self, image):
+        if isinstance(image, Image):
+            self.image = image
+            self.livewire.set_image(image)
+        
     def set_canvas(self, canvas):
-        self.canvas = canvas
+        if isinstance(canvas, QGraphicsView):
+            self.canvas = canvas
+            self.canvas.setScene(self) 
     
+    ###################################
+    #### synchronize image display ####
+    ###################################
+
+    def sync_image(self, image=None):
+        self.set_image(image)
+        if self.image is not None and self.image.is_open():
+            self.bgPixmap.setPixmap(QPixmap.fromImage(self.image.get_QImage()))
+            self.canvas.setSceneRect(0,0,self.image.width,self.image.height)
+            vis_rect = self.canvas.mapToScene(self.canvas.rect()).boundingRect()
+            scale = min(vis_rect.width()/self.image.width, vis_rect.height()/self.image.height)
+            self.canvas.scale(scale, scale)
+            if self.tool == LIVEWIRE:
+                self.sync_livewire_image()
+    
+    def sync_livewire_image(self, image=None, scale=None):
+        self.livewire.sync_image(image=image, scale=scale)
+
+    def set_tool(self, tool, paras=None):
+        self.tool = tool
+        paras = paras if isinstance(paras, dict) else {}
+        if self.tool == LIVEWIRE:
+            self.sync_livewire_image(**paras)
+        self.drawing = False
+        self.currentCommand = None
+
+    ####################################
+    #### add and remove graph items ####
+    ####################################
+
+    def deleteItem(self):
+        self.currentCommand = DeleteAnnotation(self, self.annotationMgr, self.selectedItems)
+        self.selectedItems.clear()
+
     def clear_items(self):
         for item in self.items():
             if item != self.bgPixmap:
                 self.removeItem(item)
         self.selectedItems.clear()
 
-    def setNewImage(self, image):
+    def add_graphItem(self, annotation, display_channel=None):
+        pen, brush = self.annotationMgr.appearance(annotation, display_channel)
+        graphObj = annotation.get_graphObject()
+        graphObj.setPen(pen)
+        graphObj.setBrush(brush)
+        self.addItem(graphObj)
+
+    def add_graphItems(self, display_channel=None):
         self.clear_items()
-        self.image = image
-        self.bgImage = self.image2QImage(image)
-        self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
-        # self.updateScene()
+        for _, annotation in self.annotationMgr.annotations.items():
+            self.add_graphItem(annotation, display_channel)
 
-    def setImage(self, image):
-        self.bgImage = self.image2QImage(image)
-        self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
-        # self.updateScene()
+    ##################################
+    #### display relavant methods ####
+    ##################################
 
-    def deleteItem(self):
-        self.currentCommand = DeleteAnnotation(self, self.annotationMgr, self.selectedItems)
-        self.selectedItems.clear()
-
-    def image2QImage(self, image):
-        image = np.squeeze(image)
-        if len(image.shape) == 3:
-            imdat = 255 << 24 | \
-                    image[:, :, 0].astype(np.uint32) << 16 | \
-                    image[:, :, 1].astype(np.uint32) << 8 | \
-                    image[:, :, 2].astype(np.uint32)
-        else:
-            imdat = 255 << 24 | \
-                    image.astype(np.uint32) << 16 | \
-                    image.astype(np.uint32) << 8 | \
-                    image.astype(np.uint32)
-        imdat = np.require(imdat, dtype='uint32', requirements='C').flatten()
-        # QImage.Format_ARGB32 is to be used, other formats caused memory errors for unknown reasons
-        # (even Format_RGB32 is troublesome)
-        return QImage(imdat.data, image.shape[1], image.shape[0], QImage.Format_ARGB32)
-
-    ########################
-    #### update methods ####
-    ########################
-
-    # def updateScene(self):
-    #     if self.bgImage is None:
-    #         return
-    #     self.bgPixmap.setPixmap(QPixmap.fromImage(self.bgImage))
-    #     self.update_display_channel()
-
-    def refresh_display_channel(self):
+    def refresh(self):
         for timestamp in self.annotationMgr.annotations.keys():
             pen, brush = self.annotationMgr.appearance(self.annotationMgr.annotations[timestamp], self.config['display_channel'])
             self.annotationMgr.annotations[timestamp].graphObject.setPen(pen)
             self.annotationMgr.annotations[timestamp].graphObject.setBrush(brush)
         self.highlight_items(self.selectedItems)
-
-
+        
     def selectItem(self, event):
         item = self.itemAt(event.scenePos(), QTransform())
 
@@ -129,7 +142,6 @@ class Scene(QGraphicsScene):
             self.annotationReleased.emit()
             self.selectedItems.clear()
 
-        # self.updateScene()
         self.highlight_items(self.selectedItems)
 
     def highlight(self, item, mode='highlight'):
@@ -159,17 +171,14 @@ class Scene(QGraphicsScene):
         for item in item_list:
             self.highlight(item, mode)
 
+    ###########################################
+    #### mouse and keyboard event handling ####
+    ###########################################
 
     def cancel_operation(self):
         if self.drawing:
             self.drawing = False
             self.currentCommand.cancel()
-
-
-
-    ###########################################
-    #### mouse and keyboard event handling ####
-    ###########################################
 
     def mousePressEvent(self, event):
         self.event = event
@@ -227,6 +236,8 @@ class Scene(QGraphicsScene):
         self.timer.stop()
         if self.clickBtn == Qt.LeftButton:
             if self.drawing:
+                if self.tool == LIVEWIRE:
+                    self.currentCommand.mouseSingleClickEvent(self.clickPos)
                 self.currentCommand.finish()
                 self.drawing = False
             else:
@@ -244,18 +255,6 @@ class Scene(QGraphicsScene):
             self.currentCommand.mouseMoveEvent(event)
         elif self.tool == OVAL and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-
-    def refresh_livewire(self):
-        if self.livewire.image is not self.config['image']:
-            self.livewire.set_image(self.config['image'])
-
-    def set_tool(self, tool):
-        self.tool = tool
-        if self.tool == LIVEWIRE:
-            self.refresh_livewire() 
-        self.drawing = False
-        self.currentCommand = None
-
 
     def wheelEvent(self, event):
         pass

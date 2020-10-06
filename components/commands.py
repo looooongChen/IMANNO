@@ -12,7 +12,7 @@ import cv2
 from abc import abstractmethod
 import copy
 
-from .graphDef import *
+from .enumDef import *
 
 class BaseToolClass(object):
 
@@ -198,18 +198,19 @@ class PolygonPainter(BaseToolClass):
 
 class LivewirePainter(PolygonPainter):
 
-    def __init__(self, scene, annotationMgr, start):
+    def __init__(self, scene, annotationMgr, start, radius=100):
         super().__init__(scene, annotationMgr, start)
 
+        self.radius = radius
         self.poly_tmp = QPolygonF()
-        self.scene.refresh_livewire()
-        self.scene.livewire.set_seed((self.start.x(), self.start.y()))
+        # self.scene.sync_livewire_image()
+        self.scene.livewire.set_seed(self.start.x(), self.start.y(), self.radius)
         print('====================================')
         print('Livewire tool activated')
          
     def mouseSingleClickEvent(self, pt):
-        path_x, path_y = self.scene.livewire.get_path((pt.x(), pt.y()))
-        self.scene.livewire.set_seed((pt.x(), pt.y()))
+        path_x, path_y = self.scene.livewire.get_path(pt.x(), pt.y())
+        self.scene.livewire.set_seed(pt.x(), pt.y(), self.radius)
         for i in reversed(range(len(path_x)-1)):
             self.polygon << QPointF(path_x[i], path_y[i])
         self.polygonItem.setPolygon(self.polygon)
@@ -218,7 +219,7 @@ class LivewirePainter(PolygonPainter):
     def mouseMoveEvent(self, event):
         pt = event.scenePos()
         self.poly_tmp.clear()
-        path_x, path_y = self.scene.livewire.get_path((pt.x(), pt.y()))
+        path_x, path_y = self.scene.livewire.get_path(pt.x(), pt.y())
         for i in reversed(range(len(path_x)-1)):
             self.poly_tmp << QPointF(path_x[i], path_y[i])
         self.polygonItem.setPolygon(self.polygon+self.poly_tmp)
@@ -227,6 +228,7 @@ class LivewirePainter(PolygonPainter):
         #     self.polygon.remove(-1)
 
     def process(self):
+        self.mouseSingleClickEvent
         super().process()
         self.scene.set_tool(LIVEWIRE)
     
