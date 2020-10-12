@@ -2,76 +2,57 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPen, QBrush, QColor
 from PyQt5.QtWidgets import QGraphicsScene, QMessageBox  
 from datetime import datetime as datim
-from .project import Project
-from .labelDisp import LabelDispDock
 import h5py
 import os
 
 from .annotations import *
+from .canvas import Canvas
 
 class AnnotationManager(object):
-    def __init__(self, config, project=None, scene=None, labelDisp=None):
+    def __init__(self, config, canvas=None):
 
         self.config = config
+        self.status = UNFINISHED
         self.attributes = {} # name - Attribute object
         self.annotations = {} # timestamp - Annotation object
 
-        self.set_project(project)
-        self.set_scene(scene)
-        self.set_labelDisp(labelDisp)
+        self.canvas = canvas
 
         self.saved = True # save status
-        self.annotation_file = None
-
-    def set_project(self, project):
-        if isinstance(project, Project):
-            self.project = project
-            self.project.set_annotationMgr(self) 
-        else:
-            self.project = None
-
-    def set_scene(self, scene):
-        if isinstance(scene, QGraphicsScene):
-            self.scene = scene
-            self.scene.set_annotationMgr(self)  
-        else: 
-            self.scene = None
-
-    def set_labelDisp(self, labelDisp):
-        if isinstance(labelDisp, LabelDispDock):
-            self.labelDisp = labelDisp
-            self.labelDisp.set_annotationMgr(self)
-        else:
-            self.labelDisp = None
-
-
-    ##############################################
-    #### annotation file seaching and opening ####
-    ##############################################
-
-    def get_annotation_file(self, image_id, mode='project'):
-        '''
-        Args:
-            image_id: image identifer, it will be the series number in 'project' mode, file path in 'file' mode
-            mode: 'project' or 'file'
-        '''
-        if mode == 'project' and self.project.is_open():
-            self.annotation_file = self.project.get_annotation_path(image_id)
-        else:
-            currentDir = os.path.dirname(image_id)
-            basefilename, _ = os.path.splitext(os.path.basename(image_id))
-            self.annotation_file = os.path.join(currentDir, basefilename + '.hdf5')
-        return self.annotation_file
+        self.annotation_path = None
     
-    def load_annotation(self, image_id):
-        if self.project.is_open():
-            self.annotation_file = self.get_annotation_file(image_id, mode='project')
+    def set_canvas(self, canvas):
+        if isinstance(canvas, Canvas):
+            self.canvas = canvas
+    
+    def set_status(self, status, annotation_path=None):
+        if status in [FINISHED, UNFINISHED, CONFIRMED, PROBLEM]:
+            if annotation_path is None:
+                self.status = status
+            elif isinstance(annotation_path, str) and annotation_path[-4:] == ANNOTATION_EXT:
+                with h5py.File(annotation_path) as location:
+                    location.attrs['status'] = status
+
+    def get_status(self, annotation_path=None):
+        if annotation_path is None:
+            return self.status
+        if os.path.isfile(annotation_path) and annotation_path[-4:] == ANNOTATION_EXT:
+            with h5py.File(annotation_path, 'r') as location:
+                if 'status' in location.attrs.keys():
+                    return location.attrs['status']
+                else:
+                    return UNFINISHED
         else:
-            self.annotation_file = self.get_annotation_file(image_id, mode='file')
-        self.load(self.annotation_file)
-        self.scene.add_graphItems()
-        self.scene.refresh()
-        self.labelDisp.refresh()
+            return UNFINISHED
+
+    #################################
+    #### annotation file opening ####
+    #################################
+    
+    def load_annotation(self, annotation_path):
+        if annotation_path is not None:
+            self.annotation_path = annotation_path
+            self.load(annotation_path)
 
     ############################
     #### method for add new ####
@@ -114,7 +95,8 @@ class AnnotationManager(object):
     
     def add_annotation(self, annotation, display_channel=None):
         self.annotations[annotation.timestamp] = annotation
-        self.scene.add_graphItem(annotation, display_channel)
+        if self.canvas is not None:
+            self.canvas.add_graphItem(annotation, display_channel)
 
 
     def add_label_to_selected_annotations(self, label_name, attr_name):
@@ -139,12 +121,12 @@ class AnnotationManager(object):
         return self.annotations[timestamp]
 
     def get_selected_annotations(self):
-        if self.scene is None:
+        if self.canvas is None:
             return None
-        if len(self.scene.selectedItems) == 0:
+        if len(self.canvas.selectedItems) == 0:
             return None
         annotations = []
-        for item in self.scene.selectedItems:
+        for item in self.canvas.selectedItems:
             annotations.append(self.get_annotation_by_graphItem(item))
         return annotations
 
@@ -155,8 +137,8 @@ class AnnotationManager(object):
     def delete_annotation_by_graphItem(self, graphItem):
         timestamp = [timestamp for timestamp, item in self.annotations.items() if graphItem is item.graphObject][0]
         del self.annotations[timestamp]
-        if self.scene:
-            self.scene.removeItem(graphItem)
+        if self.canvas is not None:
+            self.canvas.removeItem(graphItem)
         self.saved = False
 
     def remove_label(self, label, attr_name=None):
@@ -237,14 +219,13 @@ class AnnotationManager(object):
         self.attributes = {} 
         self.annotations = {}
         self.saved = True
-        self.annotation_file = None
+        self.annotation_path = None
 
     def save(self, inquiry=True):
         if not self.saved:
             save = QMessageBox.Yes == QMessageBox.question(None, "Important...", "Would you like to save the changes in your annotations?", QMessageBox.Yes | QMessageBox.No) if inquiry else True
-            if save and self.annotation_file is not None:
-                self.save_to_file(self.annotation_file)
-                self.annotation_file = None
+            if save and self.annotation_path is not None:
+                self.save_to_file(self.annotation_path)
 
     def save_to_file(self, filename):
 
@@ -255,15 +236,18 @@ class AnnotationManager(object):
 
         with h5py.File(filename, 'w') as location:
             to_save = []
-            # save the annotations
-            for timestamp in self.annotations.keys():
-                self.annotations[timestamp].save(location)
-                to_save.append(timestamp)
+            # save status
+            location.attrs['status'] = self.status
+            # save attributes and labels
             if 'attributes' in location.keys():
                 del location['attributes']
             for attr_name, attr in self.attributes.items():
                 # attr.save() has its own clean-ups
                 attr.save(location)
+            # save the annotations
+            for timestamp in self.annotations.keys():
+                self.annotations[timestamp].save(location)
+                to_save.append(timestamp)
             # some clean-up, same annotations may be deleted
             annotation_grp = location.require_group('annotations')
             for timestamp in annotation_grp.keys():
@@ -281,9 +265,13 @@ class AnnotationManager(object):
         self.attributes.clear()
         self.annotations.clear()
 
-        with h5py.File(filename) as location:
+        with h5py.File(filename, 'r') as location:
+            # load annotation status
+            if 'status' in location.attrs.keys():
+                self.status = location.attrs['status']
+            # load attritubutes and labels
             self.load_attributes(location)
-
+            # load annotations
             if 'annotations' in location.keys():
                 for timestamp in location['annotations']:
                     annotation = self.load_single_annotation(location['annotations'][timestamp], self.attributes)
@@ -303,7 +291,6 @@ class AnnotationManager(object):
         for attr_name in attributes.keys():
             self.attributes[attr_name] = Attribute(attr_name)
             for label_name in attributes[attr_name].keys():
-                # print(attributes[label_name])
                 color = [attributes[attr_name][label_name][0],attributes[attr_name][label_name][1],
                          attributes[attr_name][label_name][2]]
                 self.attributes[attr_name].add_label(label_name, color)
@@ -324,22 +311,24 @@ class AnnotationManager(object):
         else:
             print("Unknown annotation type")
 
-    def appearance(self, anno, display_channel=None):
+    def appearance(self, anno, display_channel):
         if isinstance(display_channel, str):
             for label in anno.labels:
                 if display_channel == label.attr_name:
                     c = label.color
                     linePen = QPen(QColor(c[0], c[1], c[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
                     areaBrush = QBrush(QColor(c[0], c[1], c[2], 70))
+                    if anno.type == LINE:
+                        linePen.setWidth(int(self.config['lineAnnotationWidth']))
                     return linePen, areaBrush
             linePen = QPen(QColor(0, 0, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             areaBrush = QBrush(QColor(0, 0, 0, 70))
-        elif display_channel == 1:
-            linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            areaBrush = QBrush(QColor(0, 200, 0, 70))
-        else:
+        elif display_channel == HIDE_ALL:
             linePen = QPen(QColor(0, 0, 0, 0), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             areaBrush = QBrush(QColor(0, 0, 0, 0))
+        else: # SHOW_ALL
+            linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            areaBrush = QBrush(QColor(0, 200, 0, 70))
         
         if anno.type == LINE:
             linePen.setWidth(int(self.config['lineAnnotationWidth']))

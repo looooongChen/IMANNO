@@ -1,24 +1,26 @@
 from PyQt5 import uic
 from PyQt5.QtGui import QIcon, QColor, QPixmap
 from PyQt5.QtWidgets import QDockWidget, QDialog, QMessageBox, QTreeWidgetItem, \
-    QTableWidgetItem, QFileDialog, QColorDialog, QGraphicsScene
+    QTableWidgetItem, QFileDialog, QColorDialog, QGraphicsScene, QWidget
 from PyQt5.QtCore import Qt
 from random import randint
 import h5py
 import os
-# from .annotationManager import AnnotationManager
-
+from .enumDef import *
+from .annotationManager import AnnotationManager
 
 class LabelDispDock(QDockWidget):
 
-    def __init__(self, config, annotationMgr=None, scene=None, parent=None):
+    def __init__(self, config, annotationMgr, canvas, parent=None):
 
         super().__init__(parent=parent)
         self.ui = uic.loadUi('uis/labelDisp.ui', baseinstance=self)
         self.config = config
         self.setContentsMargins(1,0,6,0)
+        self.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.setTitleBarWidget(QWidget())
 
-        self.set_scene(scene)
+        self.set_canvas(canvas)
         self.set_annotationMgr(annotationMgr)
 
         # connect signals and slots
@@ -28,34 +30,38 @@ class LabelDispDock(QDockWidget):
         self.btnRename.clicked.connect(self.rename)
         self.labelTree.itemDoubleClicked.connect(lambda p1,p2: self.add_label())
         self.btnDeleteGivenLabel.clicked.connect(self.remove_given_label)
-        self.channel.currentIndexChanged.connect(self.change_display_channel)
+        self.channel.currentIndexChanged.connect(self._set_channel)
     
-    def set_scene(self, scene):
-        # self.scene = scene if isinstance(scene, QGraphicsScene) else None
-        self.scene = scene
+    def set_canvas(self, canvas):
+        self.canvas = canvas
     
     def set_annotationMgr(self, annotationMgr):
-        # self.annotationMgr = annotationMgr if isinstance(annotationMgr, AnnotationManager) else None
-        self.annotationMgr = annotationMgr
-        if annotationMgr is not None:
-            self.refresh()
+        if isinstance(annotationMgr, AnnotationManager):
+            self.annotationMgr = annotationMgr
+            if annotationMgr is not None:
+                self.refresh()
 
-    #################
-    #### refresh ####
-    #################
+    ##################
+    #### channels ####
+    ##################
 
-    def change_display_channel(self, index=None):
-        index = self.channel.currentIndex()
-        attr_name = self.channel.itemText(index)
-        if len(attr_name) == 0:
-            return
-        if attr_name == "All":
-            self.config['display_channel'] = 1
-        elif attr_name == "Hidden":
-            self.config['display_channel'] = None
+    def current_channel(self):
+        curIndex = self.channel.currentIndex()
+        return self.channel.itemData(curIndex)
+
+    def set_channel(self, channel=None):
+        if channel is not None:
+            for idx in range(self.channel.count()):
+                if self.channel.itemData(idx) == channel:
+                    self.channel.setCurrentIndex(idx)
+                    break
         else:
-            self.config['display_channel'] = attr_name
-        self.scene.refresh()
+            self._set_channel()
+    
+    def _set_channel(self):
+        index = self.channel.currentIndex()
+        self.config['display_channel'] = self.channel.itemData(index)
+        self.canvas.refresh()
 
     #######################
     #### label editing ####
@@ -102,7 +108,7 @@ class LabelDispDock(QDockWidget):
         table = self.infoTable
         self.annotationMgr.remove_label_from_selected_annotation(table.item(row,1).text(),table.item(row,0).text())
         self.refresh_infoTable()
-        self.change_display_channel()
+        self.set_channel()
 
     def rename(self):
         # self.renameDlg.clear()
@@ -138,7 +144,7 @@ class LabelDispDock(QDockWidget):
         if item is not None and type == 'label':
             self.annotationMgr.add_label_to_selected_annotations(item.text(1), item.parent().text(0))
         self.refresh_infoTable()
-        self.change_display_channel()
+        self.set_channel()
 
 
     ################################
@@ -257,9 +263,10 @@ class LabelDispDock(QDockWidget):
     def refresh_channelBox(self):
         currentText = self.channel.currentText()
         self.channel.clear()
-        self.channel.addItem("All")
-        self.channel.addItem("Hidden")
-        self.channel.addItems(list(self.annotationMgr.attributes.keys()))
+        self.channel.addItem("All", userData=SHOW_ALL)
+        self.channel.addItem("Hidden", userData=HIDE_ALL)
+        for k in list(self.annotationMgr.attributes.keys()):
+            self.channel.addItem("property: " + k, userData=k)
         ind = self.channel.findText(currentText)
         if ind != -1:
             self.channel.setCurrentIndex(ind)

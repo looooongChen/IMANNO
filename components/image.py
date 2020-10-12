@@ -24,7 +24,7 @@ class Image(object):
         self.height, self.width = None, None
         self.disp = None
         self.auto_contrast = False
-        self.checksum = None
+        # self.checksum = None
         self.image_open = False
     
     def is_open(self):
@@ -41,7 +41,7 @@ class Image(object):
             self.height, self.width = self.data.shape[0], self.data.shape[1]
             self.disp = self.data
             self.auto_contrast = False
-            self.checksum = None
+            # self.checksum = None
             self.image_open = True
     
     def close(self):
@@ -51,7 +51,7 @@ class Image(object):
         self.height, self.width = None, None
         self.disp = None
         self.auto_contrast = False
-        self.checksum = None
+        # self.checksum = None
         self.image_open = False
 
     def set_auto_contrast(self, auto_contrast=True):
@@ -89,8 +89,7 @@ class Image(object):
             else:
                 return self.data
 
-    def get_checksum(self):
-        
+    def checksum(self):
         if self.is_open():
             return compute_checksum(self.path)
 

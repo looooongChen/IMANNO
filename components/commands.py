@@ -135,10 +135,14 @@ class LinePainter(BaseToolClass):
             poly = np.ndarray(shape=(self.line.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, False))
             # display message
-            print("Line finished: ", self.pathItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
-            print("Pass the line to annotationMgr")
+            minLength = self.annotationMgr.config['minLineLength']
+            if cv2.arcLength(poly_appx, False) < minLength:
+                print('Line too short :(')
+            else:
+                print("Line finished: ", self.pathItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
+                print("Pass the line to annotationMgr")
+                self.annotationMgr.new_annotation(LINE, poly_appx)
             self.scene.removeItem(self.pathItem)
-            self.annotationMgr.new_annotation(LINE, poly_appx)
             self.scene.set_tool(LINE)
         except Exception as e:
             print(e)
@@ -181,8 +185,11 @@ class PolygonPainter(BaseToolClass):
             # compute a approximation of the original polygon
             poly = np.ndarray(shape=(self.polygon.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
+            minArea = self.annotationMgr.config['minPolygonArea']
             if poly_appx.shape[0] <= 3:
-                print("You should move the mouse a little more before finishing a polygon :-)")
+                print("You should move the mouse a little more before finishing a polygon :(")
+            elif cv2.contourArea(poly_appx) < minArea:
+                print("Polygon area too small :(")
             else:
                 print("Polygon finished: ", self.polygonItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
                 print("Pass the polygon to annotationMgr")
@@ -224,8 +231,6 @@ class LivewirePainter(PolygonPainter):
             self.poly_tmp << QPointF(path_x[i], path_y[i])
         self.polygonItem.setPolygon(self.polygon+self.poly_tmp)
         self.polygonItem.update()
-        # for i in reversed(range(len(path_x)-1)):
-        #     self.polygon.remove(-1)
 
     def process(self):
         self.mouseSingleClickEvent
@@ -268,12 +273,15 @@ class BBXPainter(BaseToolClass):
 
     def process(self):
         try:
-            print("Bounding box finished: top left point (", self.bbx.left(), ', ', self.bbx.top(),
-                  '), size (', self.bbx.width(), ', ', self.bbx.height(), ')')
-            # transfer the data to annotation manager
-            print("Pass the bounding box to annotationMgr")
+            minLength = self.annotationMgr.config['minBBXLength']
+            if self.bbx.width() < minLength or self.bbx.height() < minLength:
+                print('Bounding box too small :(')
+            else:
+                print("Bounding box finished: top left point (", self.bbx.left(), ', ', self.bbx.top(), '), size (', self.bbx.width(), ', ', self.bbx.height(), ')')
+                # transfer the data to annotation manager
+                print("Pass the bounding box to annotationMgr")
+                self.annotationMgr.new_annotation(BBX, np.array((self.bbx.x(), self.bbx.y(), self.bbx.width(), self.bbx.height())))
             self.scene.removeItem(self.bbxItem)
-            self.annotationMgr.new_annotation(BBX, np.array((self.bbx.x(), self.bbx.y(), self.bbx.width(), self.bbx.height())))
             self.scene.set_tool(BBX)
         except Exception as e:
             print(e)
@@ -347,13 +355,17 @@ class OvalPainter(BaseToolClass):
 
     def process(self):
         try:
-            print("Ellipse finished: center (", self.cx, ', ', self.cy,
-                  '), size (', self.h, ', ', self.w_ratio*self.h, '), orientation ', self.angle)
-            print("Pass the ellipse to annotationMgr")
-            paras = {'center': np.array((self.cx, self.cy)), 'angle': self.angle,
-                     'axis': np.array((self.h, self.h*self.w_ratio))}
+            minAxis = self.annotationMgr.config['minOvalAxis']
+            if self.h < minAxis or self.h * self.w_ratio < minAxis:
+                print('Ellipse too small :(')
+            else:
+                print("Ellipse finished: center (", self.cx, ', ', self.cy,
+                    '), size (', self.h, ', ', self.w_ratio*self.h, '), orientation ', self.angle)
+                print("Pass the ellipse to annotationMgr")
+                paras = {'center': np.array((self.cx, self.cy)), 'angle': self.angle,
+                        'axis': np.array((self.h, self.h*self.w_ratio))}
+                self.annotationMgr.new_annotation(OVAL, paras)
             self.scene.removeItem(self.ovalItem)
-            self.annotationMgr.new_annotation(OVAL, paras)
             self.scene.set_tool(OVAL)
         except Exception as e:
             print(e)

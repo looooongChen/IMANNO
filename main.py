@@ -1,89 +1,29 @@
-import os.path as ospath
-import os
 # from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QSizePolicy, QWidget, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QListWidgetItem
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem
 from PyQt5.QtGui import QFont, QImage, QKeySequence
 from PyQt5.QtCore import Qt, QTimer
-import json
-import cv2
 from PyQt5 import uic
-
-from components.scene import Scene
-from components.labelDisp import LabelDispDock
-from components.fileList import FileListDock
-from components.extract import AnnoExporter
-from components.clean_data import AnnotationCleaner
-from components.setting import MaskDirDialog
-from components.mask2contour import mask2contour
-from components.image import Image
-from components.project import Project
+import cv2
+import os
 from pathlib import Path
 import time
 import sys
 
-
-from multiprocessing import freeze_support, set_executable
-# import openslide as osl
-
+from components.config import Config
+from components.image import Image
+from components.project import Project
+from components.annotationManager import *
+from components.canvas import Canvas
+from components.labelDisp import LabelDispDock
+from components.fileList import FileListDock, ImageTreeItem
 from components.enumDef import *
 from components.commands import *
-from components.annotationManager import *
 
+from components.extract import AnnoExporter
+from components.setting import MaskDirDialog
+from components.mask2contour import mask2contour
 
 __author__ = 'long, bug'
-
-
-class Config(dict):
-
-    def __init__(self, basic_config=None):
-        self.static_config = ['fileDirectory', 'defaultLabelListDir', 'DotAnnotationRadius', 'lineAnnotationWidth']
-        # default config
-        self['fileDirectory'] = './demo_images'
-        self['defaultLabelListDir'] = './config'
-        self['DotAnnotationRadius'] = 2
-        self['lineAnnotationWidth'] = 2
-        if basic_config is not None and ospath.exists(basic_config):
-            with open(basic_config, 'r') as f:
-                for k, value in json.load(f).items():
-                    self[k] = value
-                    self.static_config.append(k)
-
-    def save(self, path):
-        save_dict = {}
-        for k in self.static_config:
-            save_dict[k] = self[k]
-        with open(path, 'w') as f:
-            json.dump(save_dict, f)
-
-
-class Canvas(QGraphicsView):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-        self.setAcceptDrops(True)
-        self.current_scale = 1
-        self.setMouseTracking(True)
-
-    def zoom(self, scale):
-        self.scale(scale,scale)
-        self.current_scale = self.current_scale * scale
-
-    def recovery_scale(self):
-        self.scale(1/self.current_scale, 1/self.current_scale)
-        self.current_scale = 1
-
-    # def dropEvent(self, event):
-    #     fname = str(event.mimeData().data('text/uri-list'), encoding='utf-8')
-    #     fname = fname.replace('file:///', '')
-    #     fname = fname.rstrip('\r\n')
-    #     print(fname, ' -> D')
-    #     self.parent().open(filename=fname)
-
-    # def dragEnterEvent(self, event):
-    #     if event.mimeData().hasFormat('application/x-qt-windows-mime;value="FileNameW"'):
-    #         event.acceptProposedAction()
-
-    # def dragMoveEvent(self, event):
-    #     pass
 
 
 class MainWindow(QMainWindow):
@@ -104,49 +44,32 @@ class MainWindow(QMainWindow):
         self.setFont(self.font)
         self.menuBar.setFont(self.font)
 
-        # data
-        self.project = Project()
-        self.image = Image()
-        self.annotation_file = ''
-
-        self.maskDir = None
-        self.masks = []
-        self.display_channel_buffer = None
-
         # utils
         self.livewireGranularityTimer = QTimer()
+        self.maskDir = None
+        self.masks = []
 
         ###################################
         #### setup the main components ####
         ###################################
 
-        # setup the grahicsView for display
-        self.canvas = Canvas(parent=self)
-        # setup the scene
-        self.scene = Scene(config=self.config, image=self.image, canvas=self.canvas, parent=self)
-        # label display docker
-        self.labelDisp = LabelDispDock(config=self.config, scene=self.scene, parent=self)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.labelDisp)
-        self.labelDisp.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        self.labelDisp.setTitleBarWidget(QWidget())
-        # file list docker
-        self.fileList = FileListDock(self.project, self)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.fileList)
-        self.fileList.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        self.fileList.setTitleBarWidget(QWidget())
+        self.image = Image()
         # setup annotation manager
-        self.annotationMgr = AnnotationManager(config=self.config, project=self.project, scene=self.scene, labelDisp=self.labelDisp)
+        self.annotationMgr = AnnotationManager(self.config)
+        # setup project
+        self.project = Project(self.annotationMgr)
+        # setup the canvas
+        self.canvas= Canvas(self.config, self.image, self.annotationMgr, self)
+        self.annotationMgr.set_canvas(self.canvas)
+        # label display docker
+        self.labelDisp = LabelDispDock(self.config, self.annotationMgr, self.canvas, self)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.labelDisp)
+        # file list docker
+        self.fileList = FileListDock(self.project, self.annotationMgr, self)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.fileList)
         # connect them
-
         self.maskDirSetting = MaskDirDialog(self)
 
-        # initial display
-        self.canvas.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
-        self.canvas.setAlignment(Qt.AlignCenter)
-        self.setCentralWidget(self.canvas)
-        self.canvas.show()
-
-        
         ############################
         #### setup the tool bar ####
         ############################
@@ -172,7 +95,6 @@ class MainWindow(QMainWindow):
         ##############################
 
         self.statusBar.showMessage("Ready ")
-        # self.labelDisp.hide()
 
         #################################
         #### connect signal to alots ####
@@ -187,8 +109,7 @@ class MainWindow(QMainWindow):
         self.actionImport_Mask.triggered.connect(self.import_mask)
 
         # project menus
-        # self.actionProjectMerge.triggered.connect()
-        self.actionProjectCheckDuplicate.triggered.connect(self.project_check_duplicate)
+        self.actionProjectRemoveDuplicate.triggered.connect(self.project_remove_duplicate)
         self.actionProjectReimport.triggered.connect(self.project_reimport_images)
 
         # annotation menu actions
@@ -202,9 +123,8 @@ class MainWindow(QMainWindow):
         self.actionDelete.triggered.connect(self.deleteItem)
 
         self.actionConvertAnnotations.triggered.connect(self.export_annotation)
-        self.actionCleanNoisyAnnotations.triggered.connect(self.clean_annotation)
-        self.actionFileLocationsToProject.triggered.connect(self.collect_annotations)
-        self.actionProjectToFileLocations.triggered.connect(self.distribute_annotations)
+        self.actionDistributeAnnotations.triggered.connect(self.distribute_annotations)
+        self.actionCollectAnnotations.triggered.connect(self.collect_annotations)
 
         # label menu actions
         self.actionImportLabel.triggered.connect(lambda :self.labelDisp.import_labels(filename=None))
@@ -229,9 +149,14 @@ class MainWindow(QMainWindow):
         self.livewireGranularityTimer.timeout.connect(self.change_livewire_granularity)
 
         # signal between components
-        self.scene.annotationSelected.connect(self.labelDisp.refresh_infoTable)
-        self.scene.annotationReleased.connect(self.labelDisp.refresh_infoTable)
+        self.canvas.signalAnnotationSelected.connect(self.labelDisp.refresh_infoTable)
+        self.canvas.signalAnnotationReleased.connect(self.labelDisp.refresh_infoTable)
         self.fileList.signalImageChange.connect(self.load)
+        self.fileList.signalImport.connect(self.open_directory)
+
+    ###################################
+    #### image and annotation load ####
+    ###################################
 
     def load_image(self, image_path):
         if os.path.isfile(image_path):
@@ -244,50 +169,59 @@ class MainWindow(QMainWindow):
                 title = self.image.path
             self.setWindowTitle(title)
             # refresh display
-            self.scene.sync_image()
+            self.canvas.sync_image()
             self.sync_statusBar()
             return True
         else:
             return False
+    
+    def load_annotation(self, annotation_path):
+        if annotation_path is not None:
+            self.annotationMgr.load_annotation(annotation_path)
+            self.canvas.add_graphItems()
+            self.canvas.refresh()
+            self.labelDisp.refresh()
 
-    def load(self, image, annotation_path=''):
+    def load(self, image):
         '''
         Args:
-            image: a QListWidgetItem or path string
+            image: a QTreeWidgetItem or path string
         '''
         # save annotation when necessary
         self.annotationMgr.save()
         # load image and annotation
-        image_id = image.data(Qt.UserRole) if isinstance(image, QListWidgetItem) else image
-        if self.project.is_open():
+        if self.project.is_open() and isinstance(image, ImageTreeItem):
+            idx = image.idx
+            image_path = self.project.get_image_path(idx)
+            annotation_path = self.project.get_annotation_path(idx)
+            print('open', image_path, annotation_path)
             # update path when necessary
-            path_updated = False
-            image_path = self.project.get_image_path(image_id)
             if not os.path.isfile(image_path):
                 if QMessageBox.Yes == QMessageBox.question(None, "Image Path", "Image file not found, would you like to select file manually? You can also use 'Project->Reimport Images' to handle changed image locations in batches ", QMessageBox.Yes | QMessageBox.No):
                     image_path = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
                     self.project.set_image_path(image_id, image_path)
-                    path_updated = True
-            # load image
-            image_load_success = self.load_image(image_path)
-            color = Qt.black if image_load_success else Qt.red
-            image.setForeground(color)
-            if image_load_success: 
-                if self.project.get_checksum(image_id) is None or path_updated:
-                    self.project.set_checksum(image_id, self.image)
-                if path_updated:
                     image.setText(self.project.get_image_name(image_id))
         else:
-            image_path = image_id
-            image_load_success = self.load_image(image_path)
-            
+            image_path = image.path if isinstance(image, ImageTreeItem) else image
+            annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT 
+        # load image
+        image_load_success = self.load_image(image_path)
+        if isinstance(image, ImageTreeItem):
+            color = Qt.black if image_load_success else Qt.red
+            image.setForeground(0, color)
+        # load annotation    
         if image_load_success:
-            self.annotationMgr.load_annotation(image_id)
+            self.load_annotation(annotation_path)
         return image_load_success
+
+    ####################################
+    #### porject, file, folder open ####
+    ####################################
         
     def open_project(self, filename=None):
         # save project
         self.project.save()
+        self.annotationMgr.save()
         # read project name and open
         if not filename:
             project_dialog = QFileDialog(self, "Select Project Directory")
@@ -300,70 +234,75 @@ class MainWindow(QMainWindow):
                 self.project.open(path)
             
             if self.project.is_open():
-                self.fileList.init_list(*self.project.filenames(check_exist=True))
+                self.fileList.init_list(self.project.index_id.keys(), mode='project')
                 self.fileList.enableBtn()
                 self.sync_statusBar()
+    
+    def import_annotation(self):
+        pass
 
     def open_file(self):
         if self.project.is_open():
             if QMessageBox.No == QMessageBox.question(None, "Important...", "Would you like import a file into current project?", QMessageBox.Yes | QMessageBox.No):
-                self.project_close()
+                return
         filename = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
         if len(filename) != 0:
             if self.project.is_open():
-                idx, fname = self.project.add_image(filename)
-                self.fileList.add_list([fname], ids=[idx])
+                f = self.fileList.get_selected_folder()
+                idx = self.project.add_image(filename, f)
+                self.fileList.add_list([idx], mode='project')
             else:
-                self.fileList.init_list([filename])
+                annotation_path = os.path.splitext(filename)[0] + '.' + ANNOTATION_EXT
+                status = self.annotationMgr.get_status(annotation_path)
+                self.fileList.init_list([filename], [status], mode='file')
                 self.load(filename)
 
     def open_directory(self):
         if self.project.is_open():
             if QMessageBox.No == QMessageBox.question(None, "Important...", "Would you like import a directory into current project?", QMessageBox.Yes | QMessageBox.No):
-                self.project_close()
+                return
         folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
         if len(folder) != 0:
             files = [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]
             if self.project.is_open():
-                ids, fnames = self.project.add_images(files)
-                self.fileList.add_list(fnames, ids=ids)
+                f = self.fileList.get_selected_folder()
+                idxs = self.project.add_images(files, f)
+                self.fileList.add_list(idxs, mode='project')
             else:
-                self.fileList.init_list(files)
+                status = [os.path.splitext(f)[0] + '.' + ANNOTATION_EXT for f in files]
+                status = [self.annotationMgr.get_status(s) for s in status] 
+                self.fileList.init_list(files, status, mode='file')
 
     #### project related methods
 
     def project_reimport_images(self):
         folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
         self.project.reimport_image(folder)
-        self.fileList.init_list(*self.project.filenames(check_exist=True))
+        self.fileList.init_list(self.project.index_id.keys(), mode='project')
     
-    def project_check_duplicate(self):
-        self.project.check_duplicate()
-        self.fileList.init_list(*self.project.filenames(check_exist=True))
+    def project_remove_duplicate(self):
+        self.project.remove_duplicate()
+        self.fileList.init_list(self.project.index_id.keys(), mode='project')
     
     def project_close(self):
         self.fileList.close_project()
+    
+    def collect_annotations(self):
+        self.project.collect()
+        self.fileList.init_list(self.project.index_id.keys(), mode='project')
+    
+    def distribute_annotations(self):
+        self.project.distribute()
 
     #### annotation related
     def set_tool(self, tool, paras=None):
-        self.scene.set_tool(tool, paras)
+        self.canvas.set_tool(tool, paras)
         self.sync_statusBar()
 
     def export_annotation(self):
         annoExporter = AnnoExporter()
         annoExporter.exec()
         del annoExporter
-
-    def clean_annotation(self):
-        annotationCleaner = AnnotationCleaner()
-        annotationCleaner.exec()
-        del annotationCleaner
-
-    def collect_annotations(self):
-        pass
-
-    def distribute_annotations(self):
-        pass
 
     def set_mask_dir(self):
         self.maskDirSetting.exec() == QDialog.Accepted
@@ -406,7 +345,7 @@ class MainWindow(QMainWindow):
     
 
     def deleteItem(self):
-        self.scene.deleteItem()
+        self.canvas.deleteItem()
         self.labelDisp.refresh_infoTable()
 
 
@@ -436,7 +375,7 @@ class MainWindow(QMainWindow):
     def change_livewire_granularity(self, granularity=None):
         self.livewireGranularityTimer.stop()
         granularity = self.livewireGranularity.value() if granularity is None else granularity
-        self.scene.sync_livewire_image(scale=1/granularity)
+        self.canvas.sync_livewire_image(scale=1/granularity)
 
     #### display
 
@@ -445,7 +384,7 @@ class MainWindow(QMainWindow):
             self.image.set_auto_contrast(True)
         else:
             self.image.set_auto_contrast(False)
-        self.scene.sync_image()
+        self.canvas.sync_image()
         self.sync_statusBar()
 
     def sync_statusBar(self):
@@ -454,7 +393,7 @@ class MainWindow(QMainWindow):
         else:
             status = '(File Mode) '
         
-        status = status + 'Annotation Mode: ' + self.scene.tool
+        status = status + 'Annotation Mode: ' + self.canvas.tool
         
         if self.image.auto_contrast == True:
             status = status + ', Auto Contrast: On'
@@ -465,27 +404,24 @@ class MainWindow(QMainWindow):
         return status
     
     def hideMask(self):
-        curIndex = self.labelDisp.ui.channel.currentIndex()
-        if curIndex != 1:
-            self.display_channel_buffer = curIndex
-            self.labelDisp.ui.channel.setCurrentIndex(1)
-        elif self.display_channel_buffer is not None:
-            self.labelDisp.ui.channel.setCurrentIndex(self.display_channel_buffer)
+        channel = self.labelDisp.current_channel()
+        if channel != HIDE_ALL:
+            self.config['pre_display_channel'] = channel
+            self.labelDisp.set_channel(HIDE_ALL)
         else:
-            self.labelDisp.ui.channel.setCurrentIndex(0)
+            self.labelDisp.set_channel(self.config['pre_display_channel'])
 
     #### close
 
     def closeEvent(self, event):
         self.annotationMgr.save()
-        if self.project is not None:
-            self.project.save()
-        self.config.save('./config/config.cfg')
+        self.project.save()
+        self.config.save()
         super().closeEvent(event)
         
 
 if __name__ == "__main__":
-    freeze_support()
+    # freeze_support()
 
     app = QApplication(sys.argv)
 

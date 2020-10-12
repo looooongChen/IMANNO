@@ -52,7 +52,7 @@ class Livewire(object):
         if scale is not None:
             self.scale = scale
         if self.image is not None and self.image.is_open() and self.scale is not None:
-            check_sum = self.image.get_checksum()
+            check_sum = self.image.checksum()
             if check_sum != self.status[0] or self.scale != self.status[1]:
                 self.status[0], self.status[1] = check_sum, self.scale
                 self.size_x, self.size_y = int(self.image.width*self.scale), int(self.image.height*self.scale)

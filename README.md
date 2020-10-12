@@ -6,8 +6,10 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 ![ui](docs/ui.PNG)
 
 ## updates:
-- 12.2019: support for bmp images; fix line annotation bug; noisy annotation clean based on area
-- 03.2020: Livewire tool
+- Oct. 10, 2020: distribute/collect annotations to/from image file locations
+- Oct. 06, 2020: project: managing files as a project
+- Mar., 2020: Livewire tool
+- Dec., 2019: support for bmp images; fix line annotation bug; noisy annotation clean based on area
 
 ## Dependencies:
 
@@ -69,9 +71,9 @@ Note: conflict labels will be delete, so please make sure the lables are consite
 Annotations are saved in .hdf5 file with the same name of the image. Some tools are provided to export the annotations as other formats.
 
 #### .hdf5 structure
+/attributes/<attr_name>/<label_name>
 /annotations/<timestamp_of_annotation>(attr:type, timestamp)  
 /annotations/<timestamp_of_annotation>/labels/<attribute_name>(attr: label_name)   
-/attributes/attr_names/<label_name>
 
 Polygon:  
 - /annotations/<timestamp_of_annotation>/boundingBox:(4,)

@@ -1,3 +1,4 @@
+from PyQt5.QtWidgets import QMessageBox, QPushButton
 import os
 import json
 from datetime import date
@@ -8,54 +9,170 @@ import shutil
 from pathlib import Path
 from .func_annotation import *
 
-ITEM = {'id': None, 'name': None, 'ext': None, 'checksum': None, 'image_path': None, 'rel_path': False, 'annotation_path': None, 'status': MARKER}
+PROJ = {'project_name': '', 'folders': [], 'images': []}
+ITEM = {'idx': None, 'name': None, 'ext': None, 'checksum': None, 'image_path': None, 'rel_path': False, 'annotation_path': None, 'status': UNFINISHED, 'folder': None}
+
+class Item(object):
+
+    def __init__(self, proj_dir):    
+        self.data = ITEM.copy()
+        self.proj_dir = proj_dir
+    
+    @classmethod
+    def create(cls, data_dict, proj_dir):
+        obj = cls(proj_dir)
+        obj.data = data_dict
+        return obj
+    
+    def idx(self):
+        return self.data['idx']
+
+    def set_idx(self, idx):
+        self.data['idx'] = idx
+        self.set_annotation_path()
+    
+    def exists(self):
+        path = self.image_path()
+        if path is not None:
+            return os.path.isfile(path)
+        else:
+            return False
+    
+    def is_rel_path(self):
+        if self.data['rel_path'] is not None:
+            return self.data['rel_path']
+        else:
+            return False
+    
+    ## set and get image path
+
+    def set_image_path(self, path, rel_path=True):
+        path = os.path.abspath(os.path.realpath(path))
+        if rel_path and path.startswith(self.proj_dir):
+            self.data['rel_path'] = True
+            path = os.path.relpath(path, start=self.proj_dir)
+        self.data['image_path'] = path
+        self.data['name'], self.data['ext'] = os.path.splitext(os.path.basename(path))
+        self.set_checksum()
+
+    def image_path(self):
+        if self.data['image_path'] is not None:
+            path = self.data['image_path']
+            path = os.path.join(self.proj_dir, path) if self.data['rel_path'] else path
+            return path
+        else:
+            return None
+
+    def image_name(self):
+        if self.data['name'] is not None and self.data['ext'] is not None:
+            return self.data['name'] + self.data['ext']
+        else:
+            return None
+
+    ## set and get annotation path
+
+    def set_annotation_path(self):
+        if self.data['idx'] is not None:
+            anno_dir = os.path.join(self.proj_dir, 'annotations', self.data['idx'])
+            if not os.path.exists(anno_dir):
+                os.makedirs(anno_dir)
+            self.data['annotation_path'] = os.path.join('annotations', self.data['idx'], 'anno.'+ANNOTATION_EXT)
+            anno_path = os.path.join(self.proj_dir, self.data['annotation_path'])
+            with h5py.File(anno_path) as location:
+                location.attrs['status'] = UNFINISHED
+    
+    def annotation_path(self):
+        if self.data['idx'] is not None:
+            return os.path.join(self.proj_dir, self.data['annotation_path'])
+        else:
+            return None
+
+    def annotation_dir(self):
+        if self.data['idx'] is not None:
+            return os.path.join(self.proj_dir, 'annotations', self.data['idx'])
+        else:
+            return None
+
+    ## set and get checksum
+
+    def set_checksum(self):
+        if self.exists():
+            self.data['checksum'] = compute_checksum(self.image_path())
+
+    def checksum(self):
+        if self.data['checksum'] is None:
+            path = self.image_path()
+            if path is not None:
+                self.data['checksum'] = compute_checksum(path)
+        return self.data['checksum']
+
+    ## status setter and getter
+
+    def set_status(self, status):
+        if status in [FINISHED, UNFINISHED, CONFIRMED, PROBLEM]:
+            anno_path = self.annotation_path()
+            if anno_path is not None:
+                with h5py.File(anno_path) as location:
+                    location.attrs['status'] = status
+                self.data['status'] = status
+
+    def status(self):
+        return self.data['status']
+    
+    ## folder setter and getter
+
+    def set_folder(self, folder):
+        self.data['folder'] = folder
+    
+    def folder(self):
+        return self.data['folder']
 
 class Project(object):
     def __init__(self, annotationMgr=None):
-        self.set_annotationMgr(annotationMgr)
+        self.annotationMgr = annotationMgr
         self.project_name = None
         self.project_dir = None
         self.project_file = None
         self.annotation_dir = None
         self.data = {}
         self.index_id = {}
+        self.index_folder = {}
         # self.index_checksum = {}
         self.idx = 0
         self.project_open = False
 
-    def set_annotationMgr(self, annotationMgr):
-        self.annotationMgr = annotationMgr
-    
     def is_open(self):
         return self.project_open
-
+    
     def open(self, path):
         '''
         path to the project directory / project file
         '''
         if os.path.splitext(path)[1] == '.improj':
-            self.project_dir = os.path.abspath(os.path.realpath(os.path.dirname(path))) 
-            self.project_file = path
+            self.proj_dir = os.path.abspath(os.path.realpath(os.path.dirname(path))) 
+            self.proj_file = path
         else:
-            self.project_dir = os.path.abspath(os.path.realpath(path))
+            self.proj_dir = os.path.abspath(os.path.realpath(path))
             f = glob.glob(os.path.join(path, '*.improj'))
             if len(f) > 0:
-                self.project_file = f[0]
+                self.proj_file = f[0]
             else:
-                self.project_file = os.path.join(path, os.path.basename(path)+'.improj')
+                self.proj_file = os.path.join(path, os.path.basename(path)+'.improj')
         # create directories when necessary
-        if not os.path.exists(self.project_dir):
-            os.makedirs(self.project_dir)
-        self.annotation_dir = os.path.join(self.project_dir, 'annotations')
+        if not os.path.exists(self.proj_dir):
+            os.makedirs(self.proj_dir)
+        self.annotation_dir = os.path.join(self.proj_dir, 'annotations')
         if not os.path.exists(self.annotation_dir):
             os.makedirs(self.annotation_dir)
         # load project file if exists
-        if not os.path.exists(self.project_file):
-            self.data = {'project_name': os.path.basename(self.project_file)[:-7]}
+        if not os.path.exists(self.proj_file):
+            self.data = PROJ.copy()
+            self.data['project_name'] = os.path.basename(self.proj_file)[:-7]
         else:
-            with open(self.project_file) as json_file:
+            with open(self.proj_file) as json_file:
                 self.data = json.load(json_file)
-            self.index_id = {e['id']: e for e in self.data['images'] if e['id'] is not None}
+            self.index_id = {e['idx']: Item.create(e, self.proj_dir) for e in self.data['images']}
+            self.index_folder = self.get_index('folder')
         self.project_name = self.data['project_name']
         # compute current idx
         ids = [int(idx) for idx in self.index_id.keys()]
@@ -63,224 +180,269 @@ class Project(object):
         self.project_open = True
 
     def close(self):
-        self.annotationMgr.save()
-        self.save()
+        if self.project_open:
+            self.annotationMgr.save()
+            self.save()
         self.project_name = None
-        self.project_dir = None
-        self.project_file = None
+        self.proj_dir = None
+        self.proj_file = None
         self.annotation_dir = None
         self.data = {}
         self.index_id = {}
-        # self.index_checksum = {}
+        self.index_folder = {}
         self.idx = 0
         self.project_open = False
     
     def save(self):
         if self.is_open():
+            self.data['folders'] = list(self.index_folder.keys())
             self.data['images'] = []
             for item in self.index_id.values():
-                self.data['images'].append(item)
-            with open(self.project_file, 'w') as outfile:
+                self.data['images'].append(item.data)
+            with open(self.proj_file, 'w') as outfile:
                 json.dump(self.data, outfile, indent=4)
 
-    def add_images(self, images):
-        idxs, fnames = [], []
-        for img in images:
-            idx, fname = self.add_image(img)
+    ## folder operations
+    def add_folder(self, folder_name):
+        if folder_name not in self.index_folder.keys():
+            self.index_folder[folder_name] = []
+    
+    def delete_folder(self, folder_name, remove_image=True):
+        if folder_name in self.index_folder.keys():
+            # do not call self.remove_image for faster speed
+            for item in self.index_folder[folder_name]:
+                if remove_image:
+                    if item.annotation_path() == self.annotationMgr.annotation_path:
+                        self.annotationMgr.close()
+                    anno_dir = item.annotation_dir()
+                    if os.path.exists(anno_dir):
+                        shutil.rmtree(anno_dir)
+                    del self.index_id[item.idx()]
+                else:
+                    item.set_folder(None)
+            del self.index_folder[folder_name]
+    
+    def rename_folder(self, old_name, new_name):
+        if old_name in self.index_folder.keys() and new_name not in self.index_folder.keys():
+            for item in self.index_folder[old_name]:
+                item.set_folder(new_name)
+            self.index_folder[new_name] = self.index_folder.pop(old_name)
+
+    ## image operations
+
+    def add_images(self, images, folders=None):
+        idxs = []
+        if folders is None or isinstance(folders, str):
+            folders = [folders] * len(images)
+        for img, folder in zip(images, folders):
+            idx = self.add_image(img, folder)
             if idx is not None:
                 idxs.append(idx)
-                fnames.append(fname)
-        return idxs, fnames
+        return idxs
     
-    def add_image(self, image_path):
-        if image_path not in self.index_id.keys():
-            item = ITEM.copy()
-            item['id'] = '{:08d}'.format(self.idx)
-            self.idx += 1
-            # add image path
-            self.set_item_image_path(item, image_path)
-            self.index_id[item['id']] = item
-            # add annotation path
-            self.set_annotation_path(item['id'])
-            # set checksum
-            self.set_checksum(item['id'], item['image_path'])
-            return item['id'], item['name']
-        else:
-            return None, None
+    def add_image(self, image_path, folder=None):
+        item = Item(self.proj_dir)
+        idx = '{:08d}'.format(self.idx)
+        self.idx += 1
+        # set idx (annotation is also set here) 
+        item.set_idx(idx) 
+        # add image path (checksum is also set here)  
+        item.set_image_path(image_path)
+        # copy annotation file if exist 
+        annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
+        if os.path.isfile(annotation_path):
+            item.set_status(self.annotationMgr.get_status(annotation_path))
+            shutil.copy(annotation_path, item.annotation_path())
+        # update index
+        self.index_id[idx] = item
+        if folder in self.index_folder.keys():
+            item.set_folder(folder)
+            self.index_folder[folder].append(item)
+        return idx
 
     def remove_image(self, idx):
-        if os.path.exists(os.path.join(self.project_dir, 'annotations', idx)):
-            shutil.rmtree(os.path.join(self.project_dir, 'annotations', idx))
-        if self.index_id[idx]['annotation_path'] == self.annotationMgr.annotation_file:
-            self.annotationMgr.close()
-        # check_sum = self.index_id[idx]['checksum']
-        del self.index_id[idx]
+        if idx in self.index_id.keys():
+            item = self.index_id[idx]
+            if item.annotation_path == self.annotationMgr.annotation_path:
+                self.annotationMgr.close()
+            anno_dir = item.annotation_dir()
+            if os.path.exists(anno_dir):
+                shutil.rmtree(anno_dir)
+            del self.index_id[idx]
+            folder = item.folder()
+            if folder in self.index_folder.keys():
+                for i in range(len(self.index_folder[folder])):
+                    if self.index_folder[folder][i] is item:
+                        del self.index_folder[folder][i]
+                        break
     
-    def filenames(self, check_exist=False):
-        fnames, ids, status, exist = [], [], [], []
-        for idx, e in self.index_id.items():
-            ids.append(idx)
-            fnames.append(e['name']+e['ext'])
-            status.append(e['status'])
-            if check_exist:
-                exist.append(os.path.exists(self.get_item_image_path(e)))
-            else:
-                exist.append(True)
-        return fnames, ids, status, exist
-
     ## image path setter and getter
 
-    def set_item_image_path(self, item, path):
-        path = os.path.abspath(os.path.realpath(path))
-        if path.startswith(self.project_dir):
-            item['rel_path'] = True
-            path = os.path.relpath(path, start=self.project_dir)
-        item['image_path'] = path
-        item['name'], item['ext'] = os.path.splitext(os.path.basename(path))
+    def set_image_path(self, idx, path):
+        if idx in self.index_id.keys():
+            self.index_id[idx].set_image_path(path)
 
-    def get_item_image_path(self, item):
-        if item['rel_path']:
-            return os.path.join(self.project_dir, item['image_path'])
-        else:
-            return item['image_path']
-
-    def set_image_path(self, id, path):
-        if id in self.index_id.keys():
-            self.set_item_image_path(self.index_id[id], path)
-
-    def get_image_path(self, id):
-        if id in self.index_id.keys():
-            return self.get_item_image_path(self.index_id[id])
+    def get_image_path(self, idx):
+        if idx in self.index_id.keys():
+            return self.index_id[idx].image_path()
         else:
             return None
     
-    def get_image_name(self, id):
-        if id in self.index_id.keys():
-            return self.index_id[id]['name'] + self.index_id[id]['ext'] 
+    def get_image_name(self, idx):
+        if idx in self.index_id.keys():
+            return self.index_id[idx].image_name()
         else:
             return None
 
     ## annotation path setter and getter
 
-    def set_annotation_path(self, id):
-        if id in self.index_id.keys():
-            anno_dir = os.path.join(self.project_dir, 'annotations', id)
-            if not os.path.exists(anno_dir):
-                os.makedirs(anno_dir)
-            self.index_id[id]['annotation_path'] = os.path.join('annotations', id, 'anno.'+ANNOTATION_EXT)
-    
-    def get_annotation_path(self, id):
-        if id in self.index_id.keys():
-            return os.path.join(self.project_dir, self.index_id[id]['annotation_path'])
+    def get_annotation_path(self, idx):
+        if idx in self.index_id.keys():
+            return self.index_id[idx].annotation_path()
         else:
             return None
     
     ## chechsum setter and getter
     
-    def set_checksum(self, id, image):
-        '''
-        Args:
-            id: image item id
-            image: object of class components.image.Image / image path (string)
-        '''
-        if id in self.index_id.keys():
-            if isinstance(image, Image):
-                self.index_id[id]['checksum'] = image.get_checksum()
-            else:
-                self.index_id[id]['checksum'] = compute_checksum(image)
+    def set_checksum(self, idx):
+        if idx in self.index_id.keys():
+            self.index_id[idx].set_checksum()
 
-    def get_checksum(self, id):
-        return self.index_id[id]['checksum'] if id in self.index_id.keys() else None
+    def get_checksum(self, idx):
+        if idx in self.index_id.keys():
+            return self.index_id[idx].checksum()  
+        else:
+            return None
 
     ## status setter and getter
 
-    def set_status(self, id, status):
-        if id in self.index_id.keys():
-            self.index_id[id]['status'] = status
+    def set_status(self, idx, status):
+        if idx in self.index_id.keys():
+            self.index_id[idx].set_status(status)
+            if self.index_id[idx].annotation_path() == self.annotationMgr.annotation_path:
+                self.annotationMgr.set_status(status)
 
-    def get_status(self, id):
-        return self.index_id[id]['status'] if id in self.index_id.keys() else None
+    def get_status(self, idx):
+        if idx in self.index_id.keys():
+            return self.index_id[idx].status()
+        else:
+            return None
 
     ## compute index
-    
-    def get_name_index(self, files=None, check_exist=False):
-        index_name = {}
-        if files is not None:
-            file_items = []
-            for f in files:
-                name, ext = os.path.splitext(os.path.basename(f))
-                item = ITEM.copy()
-                item['name'], item['ext'], item['image_path'] = name, ext, f
-                file_items.append(item)
+
+    def get_files(self, folder):
+        files = []
+        for f in [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]:
+            item = Item(self.proj_dir)
+            item.set_image_path(f)
+            files.append(item)
+        return files
+
+    def get_index(self, attr_name, files=None, check_exist=False):
+        '''
+        if the attr_name is not available, item will not be indexed
+        Args:
+            attr_name: the attribute used as index
+            files: a list of file items
+            check_exist: only consider existing files, if True
+        '''
+        index = {}
+        files = files if files is not None else list(self.index_id.values())
+
+        if attr_name == 'name':
+            attr_name = "image_name"
+        elif attr_name == 'checksum':
+            attr_name = "checksum"
+        elif attr_name == 'folder':
+            attr_name = "folder"
         else:
-            file_items = list(self.index_id.items)
+            return index
 
-        for item in file_items:
-            if check_exist and not os.path.isfile(item['image_path']):
+        for item in files:
+            if check_exist and not item.exists():
                 continue
-            if item['name'] in index_name.keys():
-                index_name[item['name']].append(item)
-            else:
-                index_name[item['name']] = [item]
-
-        return index_name
-    
-    def get_checksum_index(self, files=None, check_exist=False):
-        index_checksum = {}
-        for _, item in self.index_id.items():
-            if item['checksum'] is None:
-                self.set_checksum(item['id'], self.get_item_image_path(item))
-            if item['checksum'] is not None:
-                if item['checksum'] in index_checksum.keys():
-                    index_checksum[item['checksum']].append(item)
+            attr = getattr(item, attr_name)()
+            if attr is not None:
+                if attr in index.keys():
+                    index[attr].append(item)
                 else:
-                    index_checksum[item['checksum']] = [item]
-        return index_checksum
+                    index[attr] = [item]
+
+        return index
     
     ## reimport images
 
     def reimport_image(self, folder):
         if os.path.exists(folder):
-            # project item match imported file
-            files = [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]
-            index_name = self.get_name_index(files)
+            files = self.get_files(folder)
+            index_checksum = self.get_index('checksum', files)
             for _, item in self.index_id.items():
-                if os.path.isfile(item['image_path']):
+                if item.exists():
                     continue
-                name = item['name']
-                if name in index_name.keys():
-                    if len(index_name[name]) == 1:
-                        self.set_item_image_path(item, index_name[name][0]['image_path'])
-                    else:
-                        if item['checksum'] is None:
-                            continue
-                        for candidate in index_name[name]:
-                            if candidate['checksum'] is None:
-                                candidate['checksum'] = compute_checksum(candidate['image_path'])
-                            if item['checksum'] == candidate['checksum']:
-                                self.set_item_image_path(item, candidate['image_path'])
-            # imported files match project files
-
+                checksum = item.checksum()
+                if checksum is not None and checksum in index_checksum.keys():
+                    item.set_image_path(index_checksum[checksum][0].image_path())
     
     ## check duplicates
 
-    def check_duplicate(self):
-        index_checksum = self.get_checksum_index()
+    def remove_duplicate(self):
+        index_checksum = self.get_index('checksum')
         for items in index_checksum.values():
             if len(items) > 1:
                 index_remain = 0
+                # keep file in project folder with priority
                 for idx, item in enumerate(items):
-                    if item['rel_path']:
+                    if item.is_rel_path():
                         index_remain = idx
                         break
                 for idx, item in enumerate(items):
                     if idx == index_remain:
                         continue
-                    anno_merge(items[index_remain]['annotation_path'], item['annotation_path'])
-                    self.remove_image(item['id'])
+                    anno_merge(items[index_remain].annotation_path(), item.annotation_path())
+                    self.remove_image(item.idx())
 
+    ## collect/distribute annotations from/to file locations
 
-                            
+    def collect(self):
+        self.annotationMgr.save()
+        op = message('Would you like to merge or overwrite annotations files in the project?')
+        if op != OP_CANCEL:
+            for idx, item in self.index_id.items():
+                image_path = item.image_path()
+                anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
+                if os.path.isfile(anno_path):
+                    if op == OP_MERGE:
+                        anno_merge(item.annotation_path(), anno_path)
+                    elif op == OP_OVERWRITE:
+                        shutil.copy(anno_path, item.annotation_path())
+                    print('Collected from: ', anno_path)
+                    self.set_status(idx, self.annotationMgr.get_status(item.annotation_path()))
 
-
+    def distribute(self):
+        self.annotationMgr.save()
+        op = message('Would you like to merge or overwrite annotations files next to the image files?')
+        if op != OP_CANCEL:
+            for idx, item in self.index_id.items():
+                image_path = item.image_path()
+                if os.path.isfile(image_path):
+                    anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
+                    if op == OP_MERGE:
+                        anno_merge(anno_path, item.annotation_path())
+                    elif op == OP_OVERWRITE:
+                        shutil.copy(item.annotation_path(), anno_path)
+                    print('Distributed to: ', anno_path)
+            
+def message(msg):
+    msgBox = QMessageBox()
+    msgBox.setText(msg)
+    msgBox.addButton(QPushButton('Merge'), QMessageBox.YesRole)
+    msgBox.addButton(QPushButton('Overwrite'), QMessageBox.NoRole)
+    msgBox.addButton(QPushButton('Cancel'), QMessageBox.RejectRole)
+    idx = msgBox.exec()
+    if idx == 0:
+        return OP_MERGE
+    elif idx == 1:
+        return OP_OVERWRITE
+    else:
+        return OP_CANCEL
 

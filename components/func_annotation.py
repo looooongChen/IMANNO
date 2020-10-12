@@ -1,13 +1,26 @@
 import os 
 import h5py
+import shutil
+from .enumDef import *
 
 def anno_merge(file1, file2):
     '''
     merge content of file2 into file1
     '''
+    if not os.path.isfile(file1) and os.path.isfile(file2):
+        shutil.copy(file2, file1)
     if os.path.isfile(file1) and os.path.isfile(file2):
         with h5py.File(file1) as f1:
             with h5py.File(file2) as f2:
+                # status
+                if 'status' in f1.attrs.keys() and 'status' in f2.attrs.keys():
+                    s1, s2 = f1.attrs['status'], f2.attrs['status']
+                    if s1 == UNFINISHED or s2 == UNFINISHED:
+                        f1.attrs['status'] = UNFINISHED
+                    if s1 == PROBLEM or s2 == PROBLEM:
+                        f1.attrs['status'] = PROBLEM
+                    if s1 == CONFIRMED and (s2 == FINISHED or s2 == CONFIRMED):
+                        f1.attrs['status'] = s2
                 # merge attritbutes
                 if 'attributes' in f2:
                     if 'attributes' not in f1:
@@ -20,8 +33,9 @@ def anno_merge(file1, file2):
                                 for kk, vv in f2['attributes/'+k].items():
                                     if kk not in f1['/attributes/'+k]:
                                         vv.copy(vv, f1['/attributes/'+k])
+                # merge annotations
                 if 'annotations' in f2:
-                    if 'annotations' not in f2:
+                    if 'annotations' not in f1:
                         f2.copy('/annotations', f1)
                     else:
                         for k, v in f2['/annotations'].items():

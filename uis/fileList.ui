@@ -18,27 +18,26 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>271</width>
+     <width>342</width>
      <height>521</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QListWidget" name="fileList"/>
+     <widget class="QTreeWidget" name="fileList">
+      <column>
+       <property name="text">
+        <string notr="true">1</string>
+       </property>
+      </column>
+     </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
        <widget class="QPushButton" name="btnMark">
         <property name="text">
          <string>Mark</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="btnDelete">
-        <property name="text">
-         <string>Delete</string>
         </property>
        </widget>
       </item>

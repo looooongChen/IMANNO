@@ -49,9 +49,8 @@
     <addaction name="actionDelete"/>
     <addaction name="separator"/>
     <addaction name="actionConvertAnnotations"/>
-    <addaction name="actionCleanNoisyAnnotations"/>
-    <addaction name="actionProjectToFileLocations"/>
-    <addaction name="actionFileLocationsToProject"/>
+    <addaction name="actionDistributeAnnotations"/>
+    <addaction name="actionCollectAnnotations"/>
    </widget>
    <widget class="QMenu" name="menuLable">
     <property name="title">
@@ -86,7 +85,7 @@
      <string>Project</string>
     </property>
     <addaction name="actionProjectMerge"/>
-    <addaction name="actionProjectCheckDuplicate"/>
+    <addaction name="actionProjectRemoveDuplicate"/>
     <addaction name="actionProjectReimport"/>
    </widget>
    <addaction name="menuFile"/>
@@ -129,7 +128,6 @@
    <addaction name="actionSetAsDefault"/>
    <addaction name="actionLoadDefault"/>
    <addaction name="separator"/>
-   <addaction name="actionCleanNoisyAnnotations"/>
    <addaction name="actionConvertAnnotations"/>
    <addaction name="actionAutoContrast"/>
    <addaction name="actionScreenShot"/>
@@ -441,13 +439,13 @@
     <string>Merge Project</string>
    </property>
   </action>
-  <action name="actionProjectCheckDuplicate">
+  <action name="actionProjectRemoveDuplicate">
    <property name="icon">
     <iconset>
      <normaloff>../icons/duplication.png</normaloff>../icons/duplication.png</iconset>
    </property>
    <property name="text">
-    <string>Check Duplicate</string>
+    <string>Remove Duplicate</string>
    </property>
   </action>
   <action name="actionProjectReimport">
@@ -459,22 +457,22 @@
     <string>Reimport Images</string>
    </property>
   </action>
-  <action name="actionProjectToFileLocations">
+  <action name="actionDistributeAnnotations">
    <property name="icon">
     <iconset>
      <normaloff>../icons/distribute.png</normaloff>../icons/distribute.png</iconset>
    </property>
    <property name="text">
-    <string>Project to File Locations</string>
+    <string>Distribute to File Locations</string>
    </property>
   </action>
-  <action name="actionFileLocationsToProject">
+  <action name="actionCollectAnnotations">
    <property name="icon">
     <iconset>
      <normaloff>../icons/collect.png</normaloff>../icons/collect.png</iconset>
    </property>
    <property name="text">
-    <string>File Locations to Project</string>
+    <string>Collect from File Locations</string>
    </property>
   </action>
  </widget>

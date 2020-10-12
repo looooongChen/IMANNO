@@ -61,6 +61,7 @@ class Attribute(object):
             label_group[label_name][1] = label_obj.color[1]
             label_group[label_name][2] = label_obj.color[2]
 
+
 class Label(object):
 
     def __init__(self, attr, label_name, color=None):
@@ -111,7 +112,7 @@ class Annotation(object):
     
     def save_labels(self, location):
         """
-        save labels related to as Annotaion
+        save labels related to an Annotaion
         Args:
             location: hdf5 group of a certain annotation (named as timestamp),
                 in which all information about an annotation is saved
