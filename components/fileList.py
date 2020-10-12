@@ -228,7 +228,9 @@ class FileListDock(QDockWidget):
     def next_image(self):
         item = self.fileList.currentItem()
         if isinstance(item, ImageTreeItem):
-            parent = item.parent()
+            parent = item.parent() 
+            if parent is None:
+                parent = self.fileList.invisibleRootItem()
             count = parent.childCount()
             if count > 1:
                 idx = parent.indexOfChild(item)
@@ -246,6 +248,8 @@ class FileListDock(QDockWidget):
         item = self.fileList.currentItem()
         if isinstance(item, ImageTreeItem):
             parent = item.parent()
+            if parent is None:
+                parent = self.fileList.invisibleRootItem()
             count = parent.childCount()
             if count > 1:
                 idx = parent.indexOfChild(item)
