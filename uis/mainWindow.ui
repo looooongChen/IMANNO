@@ -20,7 +20,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -86,7 +86,7 @@
     </property>
     <addaction name="actionProjectMerge"/>
     <addaction name="actionProjectRemoveDuplicate"/>
-    <addaction name="actionProjectReimport"/>
+    <addaction name="actionProjectSearch"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuProject"/>
@@ -448,13 +448,13 @@
     <string>Remove Duplicate</string>
    </property>
   </action>
-  <action name="actionProjectReimport">
+  <action name="actionProjectSearch">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/import_image.png</normaloff>../icons/import_image.png</iconset>
+     <normaloff>../icons/search.png</normaloff>../icons/search.png</iconset>
    </property>
    <property name="text">
-    <string>Reimport Images</string>
+    <string>Search Missing</string>
    </property>
   </action>
   <action name="actionDistributeAnnotations">

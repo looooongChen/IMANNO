@@ -1,5 +1,5 @@
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDockWidget, QTreeWidgetItem, QMenu, QMessageBox, QWidget
+from PyQt5.QtWidgets import QDockWidget, QTreeWidgetItem, QMenu, QMessageBox, QWidget, QFileDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.Qt import QStandardItem, QStandardItemModel, QAbstractItemView
@@ -75,8 +75,9 @@ class FileListDock(QDockWidget):
         self.menu = QMenu(self)
         self.actionNewFolder = self.menu.addAction(QIcon(ICONS[FOLDER]), 'New folder')
         self.actionDel = self.menu.addAction(QIcon(ICONS[DELETE]), 'Delete')
-        self.achtionRename = self.menu.addAction(QIcon(ICONS[RENAME]), 'Rename')
-        self.achtionImport = self.menu.addAction(QIcon(ICONS[IMPORT]), 'Import')
+        self.actionRename = self.menu.addAction(QIcon(ICONS[RENAME]), 'Rename')
+        self.actionImport = self.menu.addAction(QIcon(ICONS[IMPORT]), 'Import')
+        self.actionSearch = self.menu.addAction(QIcon(ICONS[SEARCH]), 'Search')
 
         # init buttons
         self.enableBtn(False)
@@ -85,9 +86,10 @@ class FileListDock(QDockWidget):
         self.fileList.itemDoubleClicked.connect(self.double_clicked)
         self.fileList.itemChanged.connect(self.on_item_change, Qt.QueuedConnection)
         self.actionNewFolder.triggered.connect(lambda x:self.add_folder(folder_name=None))
-        self.achtionRename.triggered.connect(lambda x: self.rename(item=None))
+        self.actionRename.triggered.connect(lambda x: self.rename(item=None))
         self.actionDel.triggered.connect(self.delete)
-        self.achtionImport.triggered.connect(self.import_folder)
+        self.actionImport.triggered.connect(self.import_folder)
+        self.actionSearch.triggered.connect(self.search_images)
 
         self.btnMark.clicked.connect(self.mark_image)
         self.btnClose.clicked.connect(self.close_project)
@@ -97,7 +99,8 @@ class FileListDock(QDockWidget):
         self.btnClose.setEnabled(status)
         self.actionNewFolder.setEnabled(status)
         self.actionDel.setEnabled(status)
-        self.achtionRename.setEnabled(status)
+        self.actionRename.setEnabled(status)
+        self.actionSearch.setEnabled(status)
     
     def show_menu(self, pos):
         self.menu.exec(self.fileList.mapToGlobal(pos))
@@ -217,6 +220,11 @@ class FileListDock(QDockWidget):
                     self.project.delete_folder(item.text(0))
                     self.fileList.invisibleRootItem().removeChild(item)
 
+    def search_images(self):
+        folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
+        self.project.search_image(folder)
+        self.init_list(self.project.index_id.keys(), mode='project')
+
     def next_image(self):
         item = self.fileList.currentItem()
         if isinstance(item, ImageTreeItem):
@@ -250,24 +258,24 @@ class FileListDock(QDockWidget):
         self.fileList.setCurrentItem(item)
         self.signalImageChange.emit(item)
 
-
     def double_clicked(self, item):
         if item.type() == FILE:
             self.signalImageChange.emit(item)
 
     def mark_image(self):
         items = self.fileList.selectedItems()
-        if len(items) > 0 and items[0].type() == FILE:
-            if self.project.is_open():
-                idx = items[0].idx
-                status = self.project.get_status(idx)
-                status = self._change_mark(items[0], status)
-                self.project.set_status(idx, status)
-            else:
-                path = items[0].path[:-3] + ANNOTATION_EXT
-                status = self.annotationMgr.get_status(path)
-                status = self._change_mark(items[0], status)
-                self.annotationMgr.set_status(status, path)
+        for item in items:
+            if item.type() == FILE:
+                if self.project.is_open():
+                    idx = item.idx
+                    status = self.project.get_status(idx)
+                    status = self._change_mark(item, status)
+                    self.project.set_status(idx, status)
+                else:
+                    path = item.path[:-3] + ANNOTATION_EXT
+                    status = self.annotationMgr.get_status(path)
+                    status = self._change_mark(item, status)
+                    self.annotationMgr.set_status(status, path)
 
     def _change_mark(self, item, status):
         if status == UNFINISHED:
@@ -290,6 +298,7 @@ class FileListDock(QDockWidget):
         self.project.close()
         self.fileList.clear()
         self.enableBtn(False)
+  
 
             
 

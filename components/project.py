@@ -1,13 +1,15 @@
-from PyQt5.QtWidgets import QMessageBox, QPushButton
-import os
-import json
-from datetime import date
+from PyQt5.QtWidgets import QMessageBox, QPushButton, QDialog
+from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5 import uic
 from .image import compute_checksum, Image
 from .enumDef import *
+from .func_annotation import *
+from datetime import date
+from pathlib import Path
 import glob
 import shutil
-from pathlib import Path
-from .func_annotation import *
+import json
+import os
 
 PROJ = {'project_name': '', 'folders': [], 'images': []}
 ITEM = {'idx': None, 'name': None, 'ext': None, 'checksum': None, 'image_path': None, 'rel_path': False, 'annotation_path': None, 'status': UNFINISHED, 'folder': None}
@@ -234,8 +236,14 @@ class Project(object):
         idxs = []
         if folders is None or isinstance(folders, str):
             folders = [folders] * len(images)
+
+        progress = ProgressDiag(len(images), 'Adding images to project...')
+        progress.show()
+
         for img, folder in zip(images, folders):
             idx = self.add_image(img, folder)
+            progress.new_item('Added: ' + img)
+            QCoreApplication.processEvents()
             if idx is not None:
                 idxs.append(idx)
         return idxs
@@ -338,7 +346,7 @@ class Project(object):
             files.append(item)
         return files
 
-    def get_index(self, attr_name, files=None, check_exist=False):
+    def get_index(self, attr_name, files=None, check_exist=False, progressBar=False):
         '''
         if the attr_name is not available, item will not be indexed
         Args:
@@ -351,14 +359,24 @@ class Project(object):
 
         if attr_name == 'name':
             attr_name = "image_name"
+            msg = 'constructing name index...'
         elif attr_name == 'checksum':
             attr_name = "checksum"
+            msg = 'constructing chechsum index...'
         elif attr_name == 'folder':
             attr_name = "folder"
+            msg = 'constructing folder index...'
         else:
             return index
 
+        if progressBar:
+            progress = ProgressDiag(len(files), msg)
+            progress.show()
+
         for item in files:
+            if progressBar:
+                progress.new_item('processed: ' + item.image_path())
+                QCoreApplication.processEvents()
             if check_exist and not item.exists():
                 continue
             attr = getattr(item, attr_name)()
@@ -370,13 +388,19 @@ class Project(object):
 
         return index
     
-    ## reimport images
+    ## search missing images
 
-    def reimport_image(self, folder):
+    def search_image(self, folder):
         if os.path.exists(folder):
             files = self.get_files(folder)
-            index_checksum = self.get_index('checksum', files)
+            index_checksum = self.get_index('checksum', files, progressBar=True)
+
+            progress = ProgressDiag(len(self.index_id), 'Seaching missing images...')
+            progress.show()
+
             for _, item in self.index_id.items():
+                progress.new_item('processed: ' + item.image_path())
+                QCoreApplication.processEvents()
                 if item.exists():
                     continue
                 checksum = item.checksum()
@@ -387,10 +411,16 @@ class Project(object):
 
     def remove_duplicate(self):
         index_checksum = self.get_index('checksum')
-        for items in index_checksum.values():
+
+        progress = ProgressDiag(len(index_checksum), 'Finding duplicates...')
+        progress.show()
+
+        for checksum, items in index_checksum.items():
+            msg = 'processed: ' + checksum + ', '.join([s.image_name() for s in items])
+            progress.new_item(msg)
+            QCoreApplication.processEvents()
             if len(items) > 1:
                 index_remain = 0
-                # keep file in project folder with priority
                 for idx, item in enumerate(items):
                     if item.is_rel_path():
                         index_remain = idx
@@ -422,7 +452,7 @@ class Project(object):
         self.annotationMgr.save()
         op = message('Would you like to merge or overwrite annotations files next to the image files?')
         if op != OP_CANCEL:
-            for idx, item in self.index_id.items():
+            for _, item in self.index_id.items():
                 image_path = item.image_path()
                 if os.path.isfile(image_path):
                     anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
@@ -435,14 +465,38 @@ class Project(object):
 def message(msg):
     msgBox = QMessageBox()
     msgBox.setText(msg)
-    msgBox.addButton(QPushButton('Merge'), QMessageBox.YesRole)
-    msgBox.addButton(QPushButton('Overwrite'), QMessageBox.NoRole)
-    msgBox.addButton(QPushButton('Cancel'), QMessageBox.RejectRole)
-    idx = msgBox.exec()
-    if idx == 0:
+    btnMerge = QPushButton('Merge')
+    msgBox.addButton(btnMerge, 0)
+    btnOverwrite = QPushButton('Overwrite')
+    msgBox.addButton(btnOverwrite, 1)
+    msgBox.addButton(QPushButton('Cancel'), 2)
+    msgBox.exec()
+    if msgBox.clickedButton() is btnMerge:
         return OP_MERGE
-    elif idx == 1:
+    elif msgBox.clickedButton() is btnOverwrite:
         return OP_OVERWRITE
     else:
         return OP_CANCEL
+
+class ProgressDiag(QDialog):
+    def __init__(self, total, msg="", parent=None):
+        super().__init__(parent=parent)
+        self.ui = uic.loadUi('uis/importProgress.ui', baseinstance=self)
+        self.setWindowTitle(msg)
+        # self.setWindowModality(Qt.WindowModal)
+        self.setModal(True)
+        self.setWindowFlags(Qt.Dialog | Qt.Desktop)
+        self.progressBar.setValue(0)
+        self.count = 0
+        self.total = total
+    
+    def new_item(self, msg):
+        self.count += 1
+        self.fileList.addItem(msg)
+        self.fileList.setCurrentRow(self.fileList.count()-1)
+        if int(self.count*100/self.total) - self.progressBar.value() >= 1:
+            self.progressBar.setValue(self.count*100/self.total)
+        if self.count == self.total:
+            self.progressBar.setValue(100)
+            self.close() 
 

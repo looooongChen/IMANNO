@@ -1,6 +1,6 @@
 # from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem
-from PyQt5.QtGui import QFont, QImage, QKeySequence
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem, QDialog
+from PyQt5.QtGui import QFont, QImage, QKeySequence, QPixmap 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5 import uic
 import cv2
@@ -110,7 +110,7 @@ class MainWindow(QMainWindow):
 
         # project menus
         self.actionProjectRemoveDuplicate.triggered.connect(self.project_remove_duplicate)
-        self.actionProjectReimport.triggered.connect(self.project_reimport_images)
+        self.actionProjectSearch.triggered.connect(self.project_search_images)
 
         # annotation menu actions
         self.actionBrowse.triggered.connect(lambda :self.set_tool(BROWSE))
@@ -275,9 +275,9 @@ class MainWindow(QMainWindow):
 
     #### project related methods
 
-    def project_reimport_images(self):
+    def project_search_images(self):
         folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
-        self.project.reimport_image(folder)
+        self.project.search_image(folder)
         self.fileList.init_list(self.project.index_id.keys(), mode='project')
     
     def project_remove_duplicate(self):
@@ -350,7 +350,29 @@ class MainWindow(QMainWindow):
 
 
     def take_screenshot(self):
-        pass
+        msgBox = QMessageBox()
+        msgBox.setText('Which screenshot do you want to take:')
+        btnSceen = QPushButton('Screen View')
+        msgBox.addButton(btnSceen, 0)
+        btnIMMANO = QPushButton('IMMANO View')
+        msgBox.addButton(btnIMMANO, 1)
+        msgBox.addButton(QPushButton('Image View'), 2)
+        if msgBox.exec() != QMessageBox.RejectRole:
+            if msgBox.clickedButton() is btnSceen:
+                screen = QApplication.primaryScreen().grabWindow(0)
+            elif msgBox.clickedButton() is btnIMMANO:
+                screen = self.grab()
+            else:
+                screen = self.canvas.screenshot()
+            # screen = QPixmap(self.size()) 
+            # self.render(screen)
+            dialog = QFileDialog(self, "Save the sreenshot as:")
+            dialog.setNameFilter("*.png")
+            dialog.setLabelText(QFileDialog.FileName, 'File Name')
+
+            if dialog.exec_() == QFileDialog.Accepted:
+                path = dialog.selectedFiles()[0]
+                screen.save(path, "png")
 
     def start_setting(self):
         pass

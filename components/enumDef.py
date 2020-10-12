@@ -29,6 +29,7 @@ FILE = 1
 DELETE = 2
 RENAME = 3
 IMPORT = 4
+SEARCH = 5
 
 # from PyQt5.QtGui import QIcon
 import os
@@ -42,3 +43,4 @@ ICONS[FOLDER] = os.path.join(icon_path, 'folder.png')
 ICONS[DELETE] = os.path.join(icon_path, 'delete.png')
 ICONS[RENAME] = os.path.join(icon_path, 'rename.png')
 ICONS[IMPORT] = os.path.join(icon_path, 'import_image.png')
+ICONS[SEARCH] = os.path.join(icon_path, 'search.png')

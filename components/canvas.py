@@ -1,6 +1,6 @@
 # from PyQt5.QtGui import *
 from PyQt5 import QtCore
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QRect
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent, QGraphicsPathItem, QGraphicsView, QSizePolicy
 from PyQt5.QtGui import QImage, QPixmap, QTransform
 import numpy as np
@@ -55,7 +55,12 @@ class Canvas(QGraphicsScene):
             self.view.setScene(self)
             if self.parent is not None:
                 self.parent.setCentralWidget(view)
-            self.view.show()  
+            self.view.show()
+
+    def screenshot(self):
+        sz = self.bgPixmap.boundingRect()
+        sz = self.view.mapFromScene(sz).boundingRect()
+        return self.view.grab(sz)  
     
     ##############################
     #### zoom in and out view ####
