@@ -30,14 +30,14 @@ class AnnotationManager(object):
             if annotation_path is None:
                 self.status = status
             elif isinstance(annotation_path, str) and annotation_path[-4:] == ANNOTATION_EXT:
-                with h5py.File(annotation_path) as location:
+                with h5py.File(annotation_path, 'a') as location:
                     location.attrs['status'] = status
 
     def get_status(self, annotation_path=None):
         if annotation_path is None:
             return self.status
         if os.path.isfile(annotation_path) and annotation_path[-4:] == ANNOTATION_EXT:
-            with h5py.File(annotation_path, 'r') as location:
+            with h5py.File(annotation_path, 'a') as location:
                 if 'status' in location.attrs.keys():
                     return location.attrs['status']
                 else:
@@ -241,7 +241,7 @@ class AnnotationManager(object):
             # save attributes and labels
             if 'attributes' in location.keys():
                 del location['attributes']
-            for attr_name, attr in self.attributes.items():
+            for _, attr in self.attributes.items():
                 # attr.save() has its own clean-ups
                 attr.save(location)
             # save the annotations
@@ -265,10 +265,8 @@ class AnnotationManager(object):
         self.attributes.clear()
         self.annotations.clear()
 
-        # print(filename)
-        # filename = filename.encode("utf-16")
-        print(filename)
-        with h5py.File(filename) as location:
+        print('Annotation loaded:', filename)
+        with h5py.File(filename, 'a') as location:
             # load annotation status
             if 'status' in location.attrs.keys():
                 self.status = location.attrs['status']

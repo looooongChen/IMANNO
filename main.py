@@ -188,8 +188,6 @@ class MainWindow(QMainWindow):
         Args:
             image: a QTreeWidgetItem or path string
         '''
-        import time
-        s = time.time()
         # save annotation when necessary
         self.annotationMgr.save()
         # load image and annotation
@@ -215,7 +213,6 @@ class MainWindow(QMainWindow):
         # load annotation    
         if image_load_success:
             self.load_annotation(annotation_path)
-        print(time.time()-s)
         return image_load_success
 
     ####################################

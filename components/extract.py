@@ -366,7 +366,7 @@ class AnnoExporter(QDialog):
 
             supported_type = [POLYGON]
 
-            with h5py.File(hdf5_path) as location:
+            with h5py.File(hdf5_path, 'r') as location:
                 
                 if self.ui.ignore_empty.checkState() == Qt.Checked and self.is_empty(location, supported_type):
                     print("Skip empty image: " + img_path)
@@ -420,7 +420,7 @@ class AnnoExporter(QDialog):
         annoList = []
         supported_type = [POLYGON, BBX]
 
-        with h5py.File(hdf5_path) as location:
+        with h5py.File(hdf5_path, 'r') as location:
             
             if self.ui.ignore_empty.checkState() == Qt.Checked and self.is_empty(location, supported_type):
                 print("Skip empty image: " + img_path)
@@ -470,7 +470,7 @@ class AnnoExporter(QDialog):
                 padding = 0
 
             patch_index = 1
-            with h5py.File(hdf5_path) as location:
+            with h5py.File(hdf5_path, 'r') as location:
                 if self.is_empty(location, supported_type):
                     print("Skip empty image: " + img_path)
                     return
@@ -516,7 +516,7 @@ class AnnoExporter(QDialog):
 
             supported_type = [POLYGON]
 
-            with h5py.File(hdf5_path) as location:
+            with h5py.File(hdf5_path, 'r') as location:
                 
                 if self.ui.ignore_empty.checkState() == Qt.Checked and self.is_empty(location, supported_type):
                     print("Skip empty image: " + img_path)
