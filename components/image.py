@@ -24,7 +24,7 @@ class Image(object):
         self.height, self.width = None, None
         self.disp = None
         self.auto_contrast = False
-        # self.checksum = None
+        # self.checksum = None 
         self.image_open = False
     
     def is_open(self):
@@ -32,7 +32,11 @@ class Image(object):
 
     def open(self, path):
         self.close()
-        self.data = cv2.imread(path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+
+        # unicode path compatiable
+        numpyarray = np.fromfile(path, dtype='uint8')
+        self.data = cv2.imdecode(numpyarray, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+        # self.data = cv2.imread(path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
         if self.data is not None:
             self.path = path
             self.filename = os.path.basename(path)

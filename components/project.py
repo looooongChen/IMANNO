@@ -1,9 +1,10 @@
-from PyQt5.QtWidgets import QMessageBox, QPushButton, QDialog
+from PyQt5.QtWidgets import QDialog
 from PyQt5.QtCore import QCoreApplication, Qt
 from PyQt5 import uic
 from .image import compute_checksum, Image
-from .enumDef import *
 from .func_annotation import *
+from .messages import annotation_move_message
+from .enumDef import *
 from datetime import date
 from pathlib import Path
 import glob
@@ -236,10 +237,9 @@ class Project(object):
         idxs = []
         if folders is None or isinstance(folders, str):
             folders = [folders] * len(images)
-
-        progress = ProgressDiag(len(images), 'Adding images to project...')
-        progress.show()
-
+        if len(images) > 0:
+            progress = ProgressDiag(len(images), 'Adding images to project...')
+            progress.show()
         for img, folder in zip(images, folders):
             idx = self.add_image(img, folder)
             progress.new_item('Added: ' + img)
@@ -435,7 +435,7 @@ class Project(object):
 
     def collect(self):
         self.annotationMgr.save()
-        op = message('Would you like to merge or overwrite annotations files in the project?')
+        op = annotation_move_message('Collect annotations', 'Would you like to merge or overwrite annotations files in the project?')
         if op != OP_CANCEL:
             for idx, item in self.index_id.items():
                 image_path = item.image_path()
@@ -450,7 +450,7 @@ class Project(object):
 
     def distribute(self):
         self.annotationMgr.save()
-        op = message('Would you like to merge or overwrite annotations files next to the image files?')
+        op = annotation_move_message('Distribute annotations', 'Would you like to merge or overwrite annotations files next to the image files?')
         if op != OP_CANCEL:
             for _, item in self.index_id.items():
                 image_path = item.image_path()
@@ -462,21 +462,6 @@ class Project(object):
                         shutil.copy(item.annotation_path(), anno_path)
                     print('Distributed to: ', anno_path)
             
-def message(msg):
-    msgBox = QMessageBox()
-    msgBox.setText(msg)
-    btnMerge = QPushButton('Merge')
-    msgBox.addButton(btnMerge, 0)
-    btnOverwrite = QPushButton('Overwrite')
-    msgBox.addButton(btnOverwrite, 1)
-    msgBox.addButton(QPushButton('Cancel'), 2)
-    msgBox.exec()
-    if msgBox.clickedButton() is btnMerge:
-        return OP_MERGE
-    elif msgBox.clickedButton() is btnOverwrite:
-        return OP_OVERWRITE
-    else:
-        return OP_CANCEL
 
 class ProgressDiag(QDialog):
     def __init__(self, total, msg="", parent=None):
@@ -489,6 +474,10 @@ class ProgressDiag(QDialog):
         self.progressBar.setValue(0)
         self.count = 0
         self.total = total
+    
+    def keyPressEvent(self, e):
+        if e.key() != Qt.Key_Escape:
+            super().keyPressEvent(e)
     
     def new_item(self, msg):
         self.count += 1

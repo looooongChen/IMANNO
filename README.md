@@ -6,7 +6,8 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 ![ui](docs/ui.PNG)
 
 ## updates:
-- Oct. 10, 2020: screenshot, search missing images, 
+- Oct. 13, 2020: unicode path support
+- Oct. 12, 2020: screenshot, search missing images, 
 - Oct. 10, 2020: distribute/collect annotations to/from image file locations
 - Oct. 06, 2020: project: managing files as a project
 - Mar., 2020: Livewire tool

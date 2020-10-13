@@ -265,7 +265,10 @@ class AnnotationManager(object):
         self.attributes.clear()
         self.annotations.clear()
 
-        with h5py.File(filename, 'r') as location:
+        # print(filename)
+        # filename = filename.encode("utf-16")
+        print(filename)
+        with h5py.File(filename) as location:
             # load annotation status
             if 'status' in location.attrs.keys():
                 self.status = location.attrs['status']

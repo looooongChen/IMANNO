@@ -16,6 +16,7 @@ from components.annotationManager import *
 from components.canvas import Canvas
 from components.labelDisp import LabelDispDock
 from components.fileList import FileListDock, ImageTreeItem
+from components.messages import open_message
 from components.enumDef import *
 from components.commands import *
 
@@ -187,6 +188,8 @@ class MainWindow(QMainWindow):
         Args:
             image: a QTreeWidgetItem or path string
         '''
+        import time
+        s = time.time()
         # save annotation when necessary
         self.annotationMgr.save()
         # load image and annotation
@@ -199,8 +202,8 @@ class MainWindow(QMainWindow):
             if not os.path.isfile(image_path):
                 if QMessageBox.Yes == QMessageBox.question(None, "Image Path", "Image file not found, would you like to select file manually? You can also use 'Project->Reimport Images' to handle changed image locations in batches ", QMessageBox.Yes | QMessageBox.No):
                     image_path = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
-                    self.project.set_image_path(image_id, image_path)
-                    image.setText(self.project.get_image_name(image_id))
+                    self.project.set_image_path(idx, image_path)
+                    image.setText(self.project.get_image_name(idx))
         else:
             image_path = image.path if isinstance(image, ImageTreeItem) else image
             annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT 
@@ -212,6 +215,7 @@ class MainWindow(QMainWindow):
         # load annotation    
         if image_load_success:
             self.load_annotation(annotation_path)
+        print(time.time()-s)
         return image_load_success
 
     ####################################
@@ -237,30 +241,37 @@ class MainWindow(QMainWindow):
                 self.fileList.init_list(self.project.index_id.keys(), mode='project')
                 self.fileList.enableBtn()
                 self.sync_statusBar()
+                self.config['fileDirectory'] = self.project.proj_dir
     
     def import_annotation(self):
         pass
 
     def open_file(self):
         if self.project.is_open():
-            if QMessageBox.No == QMessageBox.question(None, "Important...", "Would you like import a file into current project?", QMessageBox.Yes | QMessageBox.No):
+            op = open_message("Open files", "Would you like import a file/files into current project?")
+            if op == OP_CANCEL:
                 return
-        filename = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
-        if len(filename) != 0:
-            if self.project.is_open():
-                f = self.fileList.get_selected_folder()
-                idx = self.project.add_image(filename, f)
-                self.fileList.add_list([idx], mode='project')
-            else:
-                annotation_path = os.path.splitext(filename)[0] + '.' + ANNOTATION_EXT
-                status = self.annotationMgr.get_status(annotation_path)
-                self.fileList.init_list([filename], [status], mode='file')
-                self.load(filename)
+            if op == OP_CLOSEANDOPEN:
+                self.fileList.close_project()
+        filenames = QFileDialog.getOpenFileNames(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
+        if self.project.is_open():
+            f = self.fileList.get_selected_folder()
+            idx = self.project.add_images(filenames, f)
+            self.fileList.add_list(idx, mode='project')
+        else:
+            status = [os.path.splitext(f)[0] + '.' + ANNOTATION_EXT for f in filenames]
+            status = [self.annotationMgr.get_status(s) for s in status] 
+            self.fileList.init_list(filenames, status, mode='file')
+            if len(filenames) > 0:
+                self.load(filenames[0])
 
     def open_directory(self):
         if self.project.is_open():
-            if QMessageBox.No == QMessageBox.question(None, "Important...", "Would you like import a directory into current project?", QMessageBox.Yes | QMessageBox.No):
+            op = open_message("Open directory", "Would you like import a file into current project?")
+            if op == OP_CANCEL:
                 return
+            if op == OP_CLOSEANDOPEN:
+                self.fileList.close_project()
         folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
         if len(folder) != 0:
             files = [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]

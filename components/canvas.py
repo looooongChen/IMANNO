@@ -59,7 +59,7 @@ class Canvas(QGraphicsScene):
 
     def screenshot(self):
         sz = self.bgPixmap.boundingRect()
-        sz = self.view.mapFromScene(sz).boundingRect()
+        sz = self.view.mapFromScene(sz).boundingRect() 
         return self.view.grab(sz)  
     
     ##############################
