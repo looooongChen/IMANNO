@@ -100,6 +100,7 @@ class FileListDock(QDockWidget):
         self.actionNewFolder.setEnabled(status)
         self.actionDel.setEnabled(status)
         self.actionRename.setEnabled(status)
+        self.actionImport.setEnabled(status)
         self.actionSearch.setEnabled(status)
     
     def show_menu(self, pos):
@@ -109,14 +110,18 @@ class FileListDock(QDockWidget):
         if isinstance(item, FolderTreeItem):
             keys = list(self.folders.keys())
             for k in keys:
-                # item already added and an inconsistency exists
-                if self.folders[k] is item and k != item.text(0):
-                    if item.text(0) not in self.folders.keys():
-                        self.project.rename_folder(k, item.text(0))
-                        self.folders[item.text(0)] = self.folders.pop(k)
-                        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-                    else:
-                        self.fileList.editItem(item, 0)
+                if self.folders[k] is item:
+                    # if inconsistency exists
+                    if k != item.text(0):
+                        if item.text(0) not in self.folders.keys():
+                            self.project.rename_folder(k, item.text(0))
+                            self.folders[item.text(0)] = self.folders.pop(k)
+                        else:
+                            self.fileList.blockSignals(True)
+                            item.setText(0, k)
+                            self.fileList.blockSignals(False)
+                            self.rename(item)
+
     
     def get_selected_folder(self):
         for s in self.fileList.selectedItems():
@@ -183,8 +188,11 @@ class FileListDock(QDockWidget):
         '''
         item = self.fileList.selectedItems()[0] if item is None else item
         if isinstance(item, FolderTreeItem):
+            self.fileList.blockSignals(True)
             item.setFlags(item.flags() | Qt.ItemIsEditable)
             self.fileList.editItem(item, 0)
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            self.fileList.blockSignals(False)
 
     def add_folder(self, folder_name=None):
         if self.project.is_open():

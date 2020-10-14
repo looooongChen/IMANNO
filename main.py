@@ -359,28 +359,29 @@ class MainWindow(QMainWindow):
 
     def take_screenshot(self):
         msgBox = QMessageBox()
+        msgBox.setWindowFlags(Qt.Dialog | Qt.Desktop)
         msgBox.setText('Which screenshot do you want to take:')
         btnSceen = QPushButton('Screen View')
-        msgBox.addButton(btnSceen, 0)
+        msgBox.addButton(btnSceen, QMessageBox.YesRole)
         btnIMMANO = QPushButton('IMMANO View')
-        msgBox.addButton(btnIMMANO, 1)
-        msgBox.addButton(QPushButton('Image View'), 2)
-        if msgBox.exec() != QMessageBox.RejectRole:
-            if msgBox.clickedButton() is btnSceen:
-                screen = QApplication.primaryScreen().grabWindow(0)
-            elif msgBox.clickedButton() is btnIMMANO:
-                screen = self.grab()
-            else:
-                screen = self.canvas.screenshot()
-            # screen = QPixmap(self.size()) 
-            # self.render(screen)
-            dialog = QFileDialog(self, "Save the sreenshot as:")
-            dialog.setNameFilter("*.png")
-            dialog.setLabelText(QFileDialog.FileName, 'File Name')
+        msgBox.addButton(btnIMMANO, QMessageBox.NoRole)
+        msgBox.addButton(QPushButton('Image View'), QMessageBox.RejectRole)
+        msgBox.exec()
+        if msgBox.clickedButton() is btnSceen:
+            screen = QApplication.primaryScreen().grabWindow(0)
+        elif msgBox.clickedButton() is btnIMMANO:
+            screen = self.grab()
+        else:
+            screen = self.canvas.screenshot()
 
-            if dialog.exec_() == QFileDialog.Accepted:
-                path = dialog.selectedFiles()[0]
-                screen.save(path, "png")
+        dialog = QFileDialog(self, "Save the sreenshot as:")
+        dialog.setNameFilter("*.png")
+        dialog.setLabelText(QFileDialog.FileName, 'File Name')
+
+        if dialog.exec_() == QFileDialog.Accepted:
+            path = dialog.selectedFiles()[0]
+            path = os.path.splitext(path)[0] + '.png'
+            screen.save(path, "png")
 
     def start_setting(self):
         pass
