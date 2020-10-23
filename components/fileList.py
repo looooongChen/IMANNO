@@ -15,6 +15,10 @@ class FolderTreeItem(QTreeWidgetItem):
         self.setText(0, text)
         self.setIcon(0, QIcon(ICONS[FOLDER]))
 
+    def clone(self):
+        item = FolderTreeItem(text=self.text(0))
+        return item
+    
 class ImageTreeItem(QTreeWidgetItem):
 
     def __init__(self, status=UNFINISHED, path='', idx=None):
@@ -46,6 +50,10 @@ class ImageTreeItem(QTreeWidgetItem):
     
     def set_idx(self, idx):
         self.idx = idx
+
+    def clone(self):
+        item = ImageTreeItem(status=self.status, path=self.path, idx=self.idx)
+        return item
 
 
 class FileListDock(QDockWidget):

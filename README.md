@@ -6,6 +6,8 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 ![ui](docs/ui.PNG)
 
 ## updates:
+- Oct. 23, 2020: annotation exporter update
+- Oct. 22, 2020: project merge, progress bar of distribute/collect annotations
 - Oct. 13, 2020: unicode path support
 - Oct. 12, 2020: screenshot, search missing images, 
 - Oct. 10, 2020: distribute/collect annotations to/from image file locations

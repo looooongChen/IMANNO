@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
         self.actionDelete.triggered.connect(self.deleteItem)
 
         self.actionConvertAnnotations.triggered.connect(self.export_annotation)
+        self.actionProjectMerge.triggered.connect(self.project_merge)
         self.actionDistributeAnnotations.triggered.connect(self.distribute_annotations)
         self.actionCollectAnnotations.triggered.connect(self.collect_annotations)
 
@@ -250,7 +251,7 @@ class MainWindow(QMainWindow):
                 return
             if op == OP_CLOSEANDOPEN:
                 self.fileList.close_project()
-        filenames = QFileDialog.getOpenFileNames(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
+        filenames = QFileDialog.getOpenFileNames(self, "Select File:", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
         if self.project.is_open():
             f = self.fileList.get_selected_folder()
             idx = self.project.add_images(filenames, f)
@@ -264,7 +265,7 @@ class MainWindow(QMainWindow):
 
     def open_directory(self):
         if self.project.is_open():
-            op = open_message("Open directory", "Would you like import a file into current project?")
+            op = open_message("Open directory:", "Would you like import a file into current project?")
             if op == OP_CANCEL:
                 return
             if op == OP_CLOSEANDOPEN:
@@ -291,6 +292,19 @@ class MainWindow(QMainWindow):
     def project_remove_duplicate(self):
         self.project.remove_duplicate()
         self.fileList.init_list(self.project.index_id.keys(), mode='project')
+
+    def project_merge(self):
+
+        filename = QFileDialog.getOpenFileName(self, "Select Project File:", self.config['fileDirectory'], filter="Project (*.improj)")[0]
+
+        if len(filename) != 0:
+            if not os.path.samefile(self.project.proj_file, filename):
+                proj = Project()
+                proj.open(filename)
+                self.project.merge(proj)
+                self.fileList.init_list(self.project.index_id.keys(), mode='project')
+
+
     
     def project_close(self):
         self.fileList.close_project()
@@ -308,7 +322,8 @@ class MainWindow(QMainWindow):
         self.sync_statusBar()
 
     def export_annotation(self):
-        annoExporter = AnnoExporter()
+        annoExporter = AnnoExporter(self.project)
+        annoExporter.initial_list(self.fileList)
         annoExporter.exec()
         del annoExporter
 
