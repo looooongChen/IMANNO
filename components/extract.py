@@ -5,8 +5,10 @@ from PyQt5.QtCore import Qt
 from .enumDef import *
 from .fileList import FolderTreeItem, ImageTreeItem
 import numpy as np
+from datetime import datetime
 import os
 import h5py
+import csv
 import cv2
 import shutil
 
@@ -116,12 +118,52 @@ class AnnoExporter(QDialog):
             self.valueProperty.setEnabled(True)
 
     def export(self):
-        self.ui.progress.setValue(0)
-        self.source_dir = str(self.ui.source.text()).strip()
-        self.dest_dir = str(self.ui.dest.text()).strip()
-        if self.source_dir=='' or self.dest_dir=='':
-            return
+        self.progressBar.setValue(0)
         
+        save_dir = QFileDialog.getExistingDirectory(self, 'Select Directory')
+        if len(save_dir) != 0:
+            now = datetime.now()
+            save_dir = os.path.join(save_dir, 'export-' + now.strftime("%Y-%b-%d-%H:%M:%S"))
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            # get selected items
+            items = []
+            for i in range(self.fileList.topLevelItemCount()):
+                item = self.fileList.topLevelItem(i)
+                if isinstance(item, FolderTreeItem):
+                    for j in range(item.childCount()):
+                        child_item = item.child(j)
+                        if child_item.checkState(0) == Qt.Checked:
+                            items.append(child_item)
+                else:
+                    if item.checkState(0) == Qt.Checked:
+                        items.append(item)
+            # get valid images and annotations
+            images, annotations = [], []
+            if self.project.is_open():
+                for item in items:
+                    idx = item.idx
+                    image_path = self.project.get_image_path(idx)
+                    annotation_path = self.project.get_annotation_path(idx)
+                    if os.path.exists(image_path) and os.path.exists(annotation_path):
+                        images.append(image_path)
+                        annotations.append(annotation_path)
+            else:
+                for item in itmes:
+                    image_path = item.path
+                    annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
+                    if os.path.exists(image_path) and os.path.exists(annotation_path):
+                        images.append(image_path)
+                        annotations.append(annotation_path)
+            # export annotations and the list
+            total = len(images)
+            with open(os.path.join(save_dir, 'files.csv'), mode='w') as files:
+                file_writer = csv.writer(files, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                for idx, img, ann in zip(list(range(total)), images, annotations):
+
+                # employee_writer.writerow(['John Smith', 'Accounting', 'November'])
+                # employee_writer.writerow(['Erica Meyers', 'IT', 'March'])
+
         samples = {}
         for f in os.listdir(self.source_dir):
             path = os.path.join(self.source_dir, f)
@@ -156,6 +198,10 @@ class AnnoExporter(QDialog):
                 print("Unsupported output type")
 
             image_index += 1
+
+            if int(self.count*100/self.total) - self.progressBar.value() >= 1:
+                self.progressBar.setValue(self.count*100/self.total)
+
             if int(image_index*100/total) - self.ui.progress.value() >= 3:
                 self.ui.progress.setValue(int(image_index*100/total))
         self.ui.progress.setValue(100)    
