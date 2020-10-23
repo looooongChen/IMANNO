@@ -6,6 +6,14 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 ![ui](docs/ui.PNG)
 
 ## updates:
+- Oct. 23, 2020: annotation exporter update
+- Oct. 22, 2020: project merge, progress bar of distribute/collect annotations
+- Oct. 13, 2020: unicode path support
+- Oct. 12, 2020: screenshot, search missing images, 
+- Oct. 10, 2020: distribute/collect annotations to/from image file locations
+- Oct. 06, 2020: project: managing files as a project
+- Mar., 2020: Livewire tool
+- Dec., 2019: support for bmp images; fix line annotation bug; noisy annotation clean based on area
 - current: folder rename bug fix
 - release_Oct_2020: unicode path support; screenshot; search missing images; distribute/collect annotations to/from image file locations; project: managing files as a project
 - release_Mar_2020: Livewire tool
