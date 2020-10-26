@@ -61,7 +61,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QDoubleSpinBox" name="valuePadding"/>
+      <widget class="QSpinBox" name="valuePadding"/>
      </item>
     </layout>
    </item>

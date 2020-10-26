@@ -117,8 +117,10 @@ class AnnotationManager(object):
     ############################
 
     def get_annotation_by_graphItem(self, graphItem):
-        timestamp = [timestamp for timestamp, item in self.annotations.items() if graphItem is item.graphObject][0]
-        return self.annotations[timestamp]
+        for timestamp, item in self.annotations.items():
+            if graphItem is item.graphObject:
+                return self.annotations[timestamp]
+        return None
 
     def get_selected_annotations(self):
         if self.canvas is None:
@@ -127,7 +129,9 @@ class AnnotationManager(object):
             return None
         annotations = []
         for item in self.canvas.selectedItems:
-            annotations.append(self.get_annotation_by_graphItem(item))
+            anno = self.get_annotation_by_graphItem(item)
+            if anno is not None:
+                annotations.append(anno)
         return annotations
 
     ############################
@@ -135,8 +139,9 @@ class AnnotationManager(object):
     ############################
 
     def delete_annotation_by_graphItem(self, graphItem):
-        timestamp = [timestamp for timestamp, item in self.annotations.items() if graphItem is item.graphObject][0]
-        del self.annotations[timestamp]
+        timestamp = [timestamp for timestamp, item in self.annotations.items() if graphItem is item.graphObject]
+        if len(timestamp) > 0:
+            del self.annotations[timestamp[0]]
         if self.canvas is not None:
             self.canvas.removeItem(graphItem)
         self.saved = False

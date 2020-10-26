@@ -2,7 +2,7 @@
 from PyQt5 import QtCore
 from PyQt5.QtCore import QTimer, Qt, QRect
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsSceneMouseEvent, QGraphicsPathItem, QGraphicsView, QSizePolicy
-from PyQt5.QtGui import QImage, QPixmap, QTransform
+from PyQt5.QtGui import QImage, QPixmap, QTransform, QCursor
 import numpy as np
 # from PIL import Image
 
@@ -53,6 +53,7 @@ class Canvas(QGraphicsScene):
         if isinstance(view, QGraphicsView):
             self.view = view
             self.view.setScene(self)
+            self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
             if self.parent is not None:
                 self.parent.setCentralWidget(view)
             self.view.show()
@@ -105,8 +106,12 @@ class Canvas(QGraphicsScene):
     ####################################
 
     def deleteItem(self):
-        self.currentCommand = DeleteAnnotation(self, self.annotationMgr, self.selectedItems)
-        self.selectedItems.clear()
+        if self.drawing:
+            self.cancel_operation()
+            self.drawing
+        else:
+            self.currentCommand = DeleteAnnotation(self, self.annotationMgr, self.selectedItems)
+            self.selectedItems.clear()
 
     def clear_items(self):
         for item in self.items():
@@ -147,7 +152,9 @@ class Canvas(QGraphicsScene):
             self.selectedItems.clear()
         if item is not self.bgPixmap and item not in self.selectedItems:
             self.selectedItems.append(item)
-            self.signalAnnotationSelected.emit(self.annotationMgr.get_annotation_by_graphItem(item))
+            anno = self.annotationMgr.get_annotation_by_graphItem(item)
+            if anno is not None:
+                self.signalAnnotationSelected.emit(anno)
         else:
             self.signalAnnotationReleased.emit()
             self.selectedItems.clear()
@@ -268,20 +275,11 @@ class Canvas(QGraphicsScene):
 
     def wheelEvent(self, event):
         pass
-        # if event.delta() < 0:
-        #     if self.tool == OVAL and self.drawing:
-        #         self.currentCommand.shrink()
-        # elif event.delta() > 0:
-        #     if self.tool == OVAL and self.drawing:
-        #         self.currentCommand.expand()
-        # else:
-        #     pass
-
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.cancel_operation()
-        elif self.selectedItems and event.key() == Qt.Key_Delete:
+        elif event.key() == Qt.Key_Delete:
             self.deleteItem()
         elif event.key() == Qt.Key_Z:
             if self.tool == OVAL and self.drawing:
