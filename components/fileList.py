@@ -154,7 +154,7 @@ class FileListDock(QDockWidget):
         '''
         self.clear()
         if mode == 'project':
-            for f in self.project.data['folders']:
+            for f in sorted(self.project.data['folders']):
                 self.add_folder(f)
         self.add_list(files, status, mode)
 
@@ -167,16 +167,19 @@ class FileListDock(QDockWidget):
         '''
         if mode == 'file':
             status = [UNFINISHED] * len(files) if status is None else status
-            for f, s in zip(files, status):
-                item = ImageTreeItem(status=s, path=f)
+            file_names = [os.path.basename(f) for f in files]
+            index = sorted(range(len(file_names)), key=lambda k: file_names[k])
+            for idx in index:
+                item = ImageTreeItem(status=status[idx], path=files[idx])
                 self.fileList.addTopLevelItem(item)
         elif self.project is not None and self.project.is_open():
-            for idx in files:
-                if idx not in self.project.index_id.keys():
-                    continue
-                file_item = self.project.index_id[idx]
+            file_items = [self.project.index_id[idx] for idx in files if idx in self.project.index_id.keys()]
+            file_names = [item.image_name() for item in file_items]
+            index = sorted(range(len(file_items)), key=lambda k: file_names[k])
+            for idx in index:
+                file_item = file_items[idx]
                 item = ImageTreeItem(status=file_item.status(),
-                                     path=file_item.image_path(), idx=idx)
+                                     path=file_item.image_path(), idx=file_item.idx())
                 folder = file_item.folder()
                 if folder is None:
                     self.fileList.addTopLevelItem(item)
