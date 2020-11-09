@@ -22,6 +22,7 @@ from components.commands import *
 
 from components.extract import AnnoExporter
 from components.projectMerge import ProjectMerger
+from components.annotationDistribute import AnnotationDistributor
 from components.setting import MaskDirDialog
 from components.mask2contour import mask2contour
 
@@ -127,8 +128,9 @@ class MainWindow(QMainWindow):
 
         self.actionConvertAnnotations.triggered.connect(self.export_annotation)
         self.actionProjectMerge.triggered.connect(self.project_merge)
-        self.actionDistributeAnnotations.triggered.connect(self.distribute_annotations)
-        self.actionCollectAnnotations.triggered.connect(self.collect_annotations)
+        self.actionCollectDistributeAnnotations.triggered.connect(self.collect_distribute_annotations)
+        # self.actionDistributeAnnotations.triggered.connect(self.distribute_annotations)
+        # self.actionCollectAnnotations.triggered.connect(self.collect_annotations)
 
         # label menu actions
         self.actionImportLabel.triggered.connect(lambda :self.labelDisp.import_labels(filename=None))
@@ -295,8 +297,9 @@ class MainWindow(QMainWindow):
         self.fileList.init_list(self.project.index_id.keys(), mode='project')
     
     def project_remove_duplicate(self):
-        self.project.remove_duplicate()
-        self.fileList.init_list(self.project.index_id.keys(), mode='project')
+        if self.project.is_open():
+            self.project.remove_duplicate()
+            self.fileList.init_list(self.project.index_id.keys(), mode='project')
 
     def project_merge(self):
         
@@ -305,26 +308,40 @@ class MainWindow(QMainWindow):
         self.annotationMgr.save()
         # run project merger
         projectMerger = ProjectMerger(self.config)
-        projectMerger.projectMerged.connect(self._merged)
+        projectMerger.projectMerged.connect(self._fileList_refresh)
         if self.project.is_open():
             projectMerger.init_fileList(self.project, fileList='dst')
         projectMerger.exec()
         del projectMerger
 
-    def _merged(self, path):
-        print(path, self.project.is_open(), os.path.samefile(path, self.project.proj_file))
+    
+    def collect_distribute_annotations(self):
+        # save project
+        self.project.save()
+        self.annotationMgr.save()
+        # run collect/distribute
+        distributor = AnnotationDistributor(self.config)
+        distributor.projectMerged.connect(self._fileList_refresh)
+        if self.project.is_open():
+            distributor.init_fileList(self.project)
+        distributor.exec()
+        del distributor
+
+    def _fileList_refresh(self, path):
         if self.project.is_open() and os.path.samefile(path, self.project.proj_file):
             self.open_project(path)
 
+    # def collect_annotations(self):
+    #     self.annotationMgr.save()
+    #     self.project.collect()
+    #     self.fileList.init_list(self.project.index_id.keys(), mode='project')
+    
+    # def distribute_annotations(self):
+    #     self.annotationMgr.save()
+    #     self.project.distribute()
+
     def project_close(self):
         self.fileList.close_project()
-    
-    def collect_annotations(self):
-        self.project.collect()
-        self.fileList.init_list(self.project.index_id.keys(), mode='project')
-    
-    def distribute_annotations(self):
-        self.project.distribute()
 
     #### annotation related
     def set_tool(self, tool, paras=None):

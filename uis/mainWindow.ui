@@ -20,7 +20,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -49,8 +49,7 @@
     <addaction name="actionDelete"/>
     <addaction name="separator"/>
     <addaction name="actionConvertAnnotations"/>
-    <addaction name="actionDistributeAnnotations"/>
-    <addaction name="actionCollectAnnotations"/>
+    <addaction name="actionCollectDistributeAnnotations"/>
    </widget>
    <widget class="QMenu" name="menuLable">
     <property name="title">
@@ -457,13 +456,13 @@
     <string>Search Missing</string>
    </property>
   </action>
-  <action name="actionDistributeAnnotations">
+  <action name="actionCollectDistributeAnnotations">
    <property name="icon">
     <iconset>
      <normaloff>../icons/distribute.png</normaloff>../icons/distribute.png</iconset>
    </property>
    <property name="text">
-    <string>Distribute to File Locations</string>
+    <string>Collect/Distribute Annotations</string>
    </property>
   </action>
   <action name="actionCollectAnnotations">

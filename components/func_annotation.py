@@ -10,8 +10,8 @@ def anno_merge(file1, file2):
     if not os.path.isfile(file1) and os.path.isfile(file2):
         shutil.copy(file2, file1)
     if os.path.isfile(file1) and os.path.isfile(file2):
-        with h5py.File(file1) as f1:
-            with h5py.File(file2) as f2:
+        with h5py.File(file1, 'a') as f1:
+            with h5py.File(file2, 'a') as f2:
                 # status
                 if 'status' in f1.attrs.keys() and 'status' in f2.attrs.keys():
                     s1, s2 = f1.attrs['status'], f2.attrs['status']

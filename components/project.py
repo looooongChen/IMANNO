@@ -339,9 +339,16 @@ class Project(object):
 
     ## compute index
 
-    def get_files(self, folder):
+    def get_files(self, folder, progressBar=False):
         files = []
-        for f in [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]:
+        fnames = [str(path) for t in IMAGE_TYPES for path in Path(folder).rglob(t)]
+        if progressBar:
+            progress = ProgressDiag(len(fnames), 'Retrieving images...')
+            progress.show()
+        for f in fnames:
+            if progressBar:
+                progress.new_item('retrieved image: ' + f)
+                QCoreApplication.processEvents()
             item = Item(self.proj_dir)
             item.set_image_path(f)
             files.append(item)
@@ -393,7 +400,7 @@ class Project(object):
 
     def search_image(self, folder):
         if os.path.exists(folder):
-            files = self.get_files(folder)
+            files = self.get_files(folder, progressBar=True)
             index_checksum = self.get_index('checksum', files, progressBar=True)
 
             progress = ProgressDiag(len(self.index_id), 'Seaching missing images...')
@@ -434,44 +441,44 @@ class Project(object):
 
     ## collect/distribute annotations from/to file locations
 
-    def collect(self):
-        if self.annotationMgr is not None:
-            self.annotationMgr.save()
-        op = annotation_move_message('Collect annotations', 'Would you like to merge or overwrite annotations files in the project?')
-        if op != OP_CANCEL:
-            if len(self.index_id) > 0:
-                progress = ProgressDiag(len(self.index_id), 'Collecting images...')
-                progress.show()
-            for idx, item in self.index_id.items():
-                image_path = item.image_path()
-                anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
-                if op == OP_MERGE:
-                    anno_merge(item.annotation_path(), anno_path)
-                elif op == OP_OVERWRITE:
-                    if os.path.isfile(anno_path):
-                        shutil.copy(anno_path, item.annotation_path())
-                progress.new_item('Collected from: ' + anno_path)
-                self.set_status(idx, get_status(item.annotation_path()))
+    # def collect(self):
+    #     if self.annotationMgr is not None:
+    #         self.annotationMgr.save()
+    #     op = annotation_move_message('Collect annotations', 'Would you like to merge or overwrite annotations files in the project?')
+    #     if op != OP_CANCEL:
+    #         if len(self.index_id) > 0:
+    #             progress = ProgressDiag(len(self.index_id), 'Collecting images...')
+    #             progress.show()
+    #         for idx, item in self.index_id.items():
+    #             image_path = item.image_path()
+    #             anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
+    #             if op == OP_MERGE:
+    #                 anno_merge(item.annotation_path(), anno_path)
+    #             elif op == OP_OVERWRITE:
+    #                 if os.path.isfile(anno_path):
+    #                     shutil.copy(anno_path, item.annotation_path())
+    #             progress.new_item('Collected from: ' + anno_path)
+    #             self.set_status(idx, get_status(item.annotation_path()))
 
-    def distribute(self):
-        if self.annotationMgr is not None:
-            self.annotationMgr.save()
-        op = annotation_move_message('Distribute annotations', 'Would you like to merge or overwrite annotations files next to the image files?')
-        if op != OP_CANCEL:
-            if len(self.index_id) > 0:
-                progress = ProgressDiag(len(self.index_id), 'Distributing images...')
-                progress.show()
-            for _, item in self.index_id.items():
-                image_path = item.image_path()
-                if os.path.isfile(image_path):
-                    anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
-                    if op == OP_MERGE:
-                        anno_merge(anno_path, item.annotation_path())
-                    elif op == OP_OVERWRITE:
-                        shutil.copy(item.annotation_path(), anno_path)
-                    progress.new_item('Distributed to: ' + anno_path)
-                else:
-                    progress.new_item('Image not found: ' + image_path)
+    # def distribute(self):
+    #     if self.annotationMgr is not None:
+    #         self.annotationMgr.save()
+    #     op = annotation_move_message('Distribute annotations', 'Would you like to merge or overwrite annotations files next to the image files?')
+    #     if op != OP_CANCEL:
+    #         if len(self.index_id) > 0:
+    #             progress = ProgressDiag(len(self.index_id), 'Distributing images...')
+    #             progress.show()
+    #         for _, item in self.index_id.items():
+    #             image_path = item.image_path()
+    #             if os.path.isfile(image_path):
+    #                 anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
+    #                 if op == OP_MERGE:
+    #                     anno_merge(anno_path, item.annotation_path())
+    #                 elif op == OP_OVERWRITE:
+    #                     shutil.copy(item.annotation_path(), anno_path)
+    #                 progress.new_item('Distributed to: ' + anno_path)
+    #             else:
+    #                 progress.new_item('Image not found: ' + image_path)
 
 class ProgressDiag(QDialog):
     def __init__(self, total, msg="", parent=None):
