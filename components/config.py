@@ -2,7 +2,7 @@ import json
 import os
 from .enumDef import *
 
-runtime_config = ['display_channel', 'pre_display_channel']
+save_config = ['fileDirectory', 'defaultLabelListDir', 'DotAnnotationRadius', 'lineAnnotationWidth', 'minPolygonArea', 'minBBXLength', 'minOvalAxis', 'minLineLength']
 
 class Config(dict):
 
@@ -28,8 +28,8 @@ class Config(dict):
                     self[k] = value
 
     def save(self):
-        save_dict = self.copy()
-        for k in runtime_config:
-            del save_dict[k]
+        save_dict = {}
+        for k in save_config:
+            save_dict[k] = self[k]
         with open(self.path, 'w') as f:
             json.dump(save_dict, f)

@@ -1,6 +1,6 @@
 # from PyQt5.QtGui import *
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem, QDialog
-from PyQt5.QtGui import QFont, QImage, QKeySequence, QPixmap 
+from PyQt5.QtGui import QFont, QImage, QKeySequence, QPixmap, QIcon 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5 import uic
 import cv2
@@ -21,6 +21,7 @@ from components.enumDef import *
 from components.commands import *
 
 from components.extract import AnnoExporter
+from components.projectMerge import ProjectMerger
 from components.setting import MaskDirDialog
 from components.mask2contour import mask2contour
 
@@ -40,6 +41,7 @@ class MainWindow(QMainWindow):
         self.ui = uic.loadUi('uis/mainWindow.ui', baseinstance=self)
         self.setWindowTitle('Image Annotations Toolkit by LfB, RWTH Aachen University')
         self.config = Config('./config/config.cfg')
+        self.config['icons'] = {k: QIcon(p) for k, p in ICONS.items()}
         # appearance
         self.font = QFont("Times", pointSize=10)
         self.setFont(self.font)
@@ -66,7 +68,7 @@ class MainWindow(QMainWindow):
         self.labelDisp = LabelDispDock(self.config, self.annotationMgr, self.canvas, self)
         self.addDockWidget(Qt.RightDockWidgetArea, self.labelDisp)
         # file list docker
-        self.fileList = FileListDock(self.project, self.annotationMgr, self)
+        self.fileList = FileListDock(self.config, self.project, self.annotationMgr, self)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.fileList)
         # connect them
         self.maskDirSetting = MaskDirDialog(self)
@@ -232,9 +234,12 @@ class MainWindow(QMainWindow):
             project_dialog.setLabelText(QFileDialog.FileName, 'Project Name')
 
             if project_dialog.exec_() == QFileDialog.Accepted:
-                path = project_dialog.selectedFiles()[0]
-                self.project.open(path)
-            
+                filename = project_dialog.selectedFiles()[0]
+            else:
+                filename = ''
+        
+        if os.path.isfile(filename):
+            self.project.open(filename)
             if self.project.is_open():
                 self.fileList.init_list(self.project.index_id.keys(), mode='project')
                 self.fileList.enableBtn()
@@ -294,18 +299,23 @@ class MainWindow(QMainWindow):
         self.fileList.init_list(self.project.index_id.keys(), mode='project')
 
     def project_merge(self):
+        
+        # save project
+        self.project.save()
+        self.annotationMgr.save()
+        # run project merger
+        projectMerger = ProjectMerger(self.config)
+        projectMerger.projectMerged.connect(self._merged)
+        if self.project.is_open():
+            projectMerger.init_fileList(self.project, fileList='dst')
+        projectMerger.exec()
+        del projectMerger
 
-        filename = QFileDialog.getOpenFileName(self, "Select Project File:", self.config['fileDirectory'], filter="Project (*.improj)")[0]
+    def _merged(self, path):
+        print(path, self.project.is_open(), os.path.samefile(path, self.project.proj_file))
+        if self.project.is_open() and os.path.samefile(path, self.project.proj_file):
+            self.open_project(path)
 
-        if len(filename) != 0:
-            if not os.path.samefile(self.project.proj_file, filename):
-                proj = Project()
-                proj.open(filename)
-                self.project.merge(proj)
-                self.fileList.init_list(self.project.index_id.keys(), mode='project')
-
-
-    
     def project_close(self):
         self.fileList.close_project()
     
@@ -322,7 +332,7 @@ class MainWindow(QMainWindow):
         self.sync_statusBar()
 
     def export_annotation(self):
-        annoExporter = AnnoExporter(self.project)
+        annoExporter = AnnoExporter(self.config, self.project)
         annoExporter.initial_list(self.fileList)
         annoExporter.exec()
         del annoExporter

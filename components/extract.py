@@ -25,8 +25,9 @@ TP_PATCH = "patches (.png)"
 TP_SKELETON = "skeleton (.png)"
 
 class AnnoExporter(QDialog):
-    def __init__(self, project=None, parent=None):
+    def __init__(self, config, project=None, parent=None):
         super().__init__(parent=parent)
+        self.config = config
         self.ui = uic.loadUi('uis/annoExporter.ui', baseinstance=self)
         self.setWindowTitle("Export annotations")
         self.project = project
@@ -63,12 +64,17 @@ class AnnoExporter(QDialog):
             item = fileList.topLevelItem(i)
             item_c = item.clone()
             item_c.setCheckState(0, Qt.Unchecked)
-            self.fileList.addTopLevelItem(item_c)
             if isinstance(item, FolderTreeItem):
+                item_c.set_icon(self.config['icons'][FOLDER])
+                self.fileList.addTopLevelItem(item_c)
                 for j in range(item.childCount()):
                     child_item = item.child(j).clone()
                     child_item.setCheckState(0, Qt.Unchecked)
+                    child_item.set_icon(self.config['icons'][child_item.status])
                     item_c.addChild(child_item)
+            else:
+                item_c.set_icon(self.config['icons'][item_c.status])
+                self.fileList.addTopLevelItem(item_c)
     
     def on_item_change(self, item, col):
         if isinstance(item, FolderTreeItem):
@@ -181,7 +187,7 @@ class AnnoExporter(QDialog):
                     if int(progress*100/total) - self.progressBar.value() >= 1:
                         self.progressBar.setValue(progress*100/total)
                     QCoreApplication.processEvents()
-                    # export mask singel
+                    # export mask single
                     if exportType == TP_MASK_SINGLE:
                         export, is_empty = export_mask(anno, img, save_as_one=True)
                         if ignore and is_empty:

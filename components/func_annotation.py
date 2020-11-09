@@ -15,12 +15,12 @@ def anno_merge(file1, file2):
                 # status
                 if 'status' in f1.attrs.keys() and 'status' in f2.attrs.keys():
                     s1, s2 = f1.attrs['status'], f2.attrs['status']
-                    if s1 == UNFINISHED or s2 == UNFINISHED:
-                        f1.attrs['status'] = UNFINISHED
+                    if s1 == FINISHED or s2 == FINISHED:
+                        f1.attrs['status'] = FINISHED
                     if s1 == PROBLEM or s2 == PROBLEM:
                         f1.attrs['status'] = PROBLEM
-                    if s1 == CONFIRMED and (s2 == FINISHED or s2 == CONFIRMED):
-                        f1.attrs['status'] = s2
+                    if s1 == CONFIRMED and s2 == CONFIRMED:
+                        f1.attrs['status'] = CONFIRMED
                 # merge attritbutes
                 if 'attributes' in f2:
                     if 'attributes' not in f1:
@@ -48,5 +48,13 @@ def anno_merge(file1, file2):
                                     elif f1['annotations/'+k+'/labels/'+kk].attrs['label_name'] != f2['annotations/'+k+'/labels/'+kk].attrs['label_name']:
                                         # if label conflict happens
                                         del f1['annotations/'+k+'/labels/'+kk]
+
+def get_status(annotation_path):
+    if os.path.isfile(annotation_path) and annotation_path[-4:] == ANNOTATION_EXT:
+        with h5py.File(annotation_path, 'a') as location:
+            if 'status' in location.attrs.keys():
+                return location.attrs['status']
+            else:
+                return UNFINISHED
 
 

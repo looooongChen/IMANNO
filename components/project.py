@@ -135,7 +135,7 @@ class Project(object):
         self.annotationMgr = annotationMgr
         self.project_name = None
         self.project_dir = None
-        self.project_file = None
+        self.proj_file = None
         self.annotation_dir = None
         self.data = {}
         self.index_id = {}
@@ -184,7 +184,8 @@ class Project(object):
 
     def close(self):
         if self.project_open:
-            self.annotationMgr.save()
+            if self.annotationMgr is not None:
+                self.annotationMgr.save()
             self.save()
         self.project_name = None
         self.proj_dir = None
@@ -215,7 +216,7 @@ class Project(object):
             # do not call self.remove_image for faster speed
             for item in self.index_folder[folder_name]:
                 if remove_image:
-                    if item.annotation_path() == self.annotationMgr.annotation_path:
+                    if self.annotationMgr is not None and item.annotation_path() == self.annotationMgr.annotation_path:
                         self.annotationMgr.close()
                     anno_dir = item.annotation_dir()
                     if os.path.exists(anno_dir):
@@ -259,7 +260,7 @@ class Project(object):
         # copy annotation file if exist 
         annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
         if os.path.isfile(annotation_path):
-            item.set_status(self.annotationMgr.get_status(annotation_path))
+            item.set_status(get_status(annotation_path))
             shutil.copy(annotation_path, item.annotation_path())
         # update index
         self.index_id[idx] = item
@@ -271,7 +272,7 @@ class Project(object):
     def remove_image(self, idx):
         if idx in self.index_id.keys():
             item = self.index_id[idx]
-            if item.annotation_path == self.annotationMgr.annotation_path:
+            if self.annotationMgr is not None and item.annotation_path == self.annotationMgr.annotation_path:
                 self.annotationMgr.close()
             anno_dir = item.annotation_dir()
             if os.path.exists(anno_dir):
@@ -327,7 +328,7 @@ class Project(object):
     def set_status(self, idx, status):
         if idx in self.index_id.keys():
             self.index_id[idx].set_status(status)
-            if self.index_id[idx].annotation_path() == self.annotationMgr.annotation_path:
+            if self.annotationMgr is not None and self.index_id[idx].annotation_path() == self.annotationMgr.annotation_path:
                 self.annotationMgr.set_status(status)
 
     def get_status(self, idx):
@@ -434,7 +435,8 @@ class Project(object):
     ## collect/distribute annotations from/to file locations
 
     def collect(self):
-        self.annotationMgr.save()
+        if self.annotationMgr is not None:
+            self.annotationMgr.save()
         op = annotation_move_message('Collect annotations', 'Would you like to merge or overwrite annotations files in the project?')
         if op != OP_CANCEL:
             if len(self.index_id) > 0:
@@ -446,12 +448,14 @@ class Project(object):
                 if op == OP_MERGE:
                     anno_merge(item.annotation_path(), anno_path)
                 elif op == OP_OVERWRITE:
-                    shutil.copy(anno_path, item.annotation_path())
+                    if os.path.isfile(anno_path):
+                        shutil.copy(anno_path, item.annotation_path())
                 progress.new_item('Collected from: ' + anno_path)
-                self.set_status(idx, self.annotationMgr.get_status(item.annotation_path()))
+                self.set_status(idx, get_status(item.annotation_path()))
 
     def distribute(self):
-        self.annotationMgr.save()
+        if self.annotationMgr is not None:
+            self.annotationMgr.save()
         op = annotation_move_message('Distribute annotations', 'Would you like to merge or overwrite annotations files next to the image files?')
         if op != OP_CANCEL:
             if len(self.index_id) > 0:
@@ -468,39 +472,6 @@ class Project(object):
                     progress.new_item('Distributed to: ' + anno_path)
                 else:
                     progress.new_item('Image not found: ' + image_path)
-
-    def merge(self, proj):
-        self.annotationMgr.save()
-        print('inn')
-        op = annotation_move_message('Merge project', 'Would you like to merge or overwrite annotations?')
-        print('innnnn', op)
-        if op != OP_CANCEL and not os.path.samefile(self.proj_file, proj.proj_file):
-            # merge folders
-            for f in proj.index_folder.keys():
-                if f not in self.index_folder.keys():
-                    self.add_folder(f)
-            # merge image items
-            if len(proj.index_id) > 0:
-                progress = ProgressDiag(len(proj.index_id), 'Merging project...')
-                progress.show()
-            for idx, item_src in proj.index_id.items():
-                if idx in self.index_id.keys():
-                    item_dst = self.index_id[idx]
-                    checksum_src, checksum_dst = item_src.checksum(), item_dst.checksum()
-                    if checksum_src is not None and checksum_src == checksum_dst:
-                        if op == OP_MERGE:
-                            anno_merge(item_dst.annotation_path(), item_src.annotation_path())
-                            progress.new_item("Item overwritten: " + item_dst.image_path())
-                        elif op == OP_OVERWRITE:
-                            shutil.copy(item_src.annotation_path(), item_dst.annotation_path())
-                            progress.new_item("Item merged: " + item_dst.image_path())
-                        continue
-                
-                self.add_image(item_src.image_path(), item_src.folder())
-                item_dst = self.index_id[idx]
-                item_dst.set_status(item_src.status())
-                shutil.copy(item_src.annotation_path(), item_dst.annotation_path())
-                progress.new_item("Item added: " + item_dst.image_path())
 
 class ProgressDiag(QDialog):
     def __init__(self, total, msg="", parent=None):

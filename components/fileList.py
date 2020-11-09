@@ -13,7 +13,9 @@ class FolderTreeItem(QTreeWidgetItem):
     def __init__(self, text=''):
         super().__init__(FOLDER)
         self.setText(0, text)
-        self.setIcon(0, QIcon(ICONS[FOLDER]))
+    
+    def set_icon(self, icon):
+        self.setIcon(0, icon)
 
     def clone(self):
         item = FolderTreeItem(text=self.text(0))
@@ -29,17 +31,18 @@ class ImageTreeItem(QTreeWidgetItem):
             idx: id of a file in the project file 
         '''
         super().__init__(FILE)
-        self.status = UNFINISHED
         self.path = ''
         self.idx = None
-        self.set_status(status)
+        self.status = status
         self.set_path(path)
-        self.set_idx(idx)
+        self.idx = idx
     
     def set_status(self, status):
         if status in [UNFINISHED, FINISHED, CONFIRMED, PROBLEM]:
             self.status = status
-            self.setIcon(0, QIcon(ICONS[status]))
+            
+    def set_icon(self, icon):
+        self.setIcon(0, icon)
 
     def set_path(self, path):
         if isinstance(path, str) and len(path) > 0:
@@ -61,10 +64,11 @@ class FileListDock(QDockWidget):
     signalImageChange = pyqtSignal(ImageTreeItem)
     signalImport = pyqtSignal()
 
-    def __init__(self, project, annotationMgr, parent=None):
+    def __init__(self, config, project, annotationMgr, parent=None):
 
         super().__init__(parent=parent)
         self.ui = uic.loadUi('uis/fileList.ui', baseinstance=self)
+        self.config = config
         self.project = project
         self.annotationMgr = annotationMgr
         self.folders = {}
@@ -171,6 +175,7 @@ class FileListDock(QDockWidget):
             index = sorted(range(len(file_names)), key=lambda k: file_names[k])
             for idx in index:
                 item = ImageTreeItem(status=status[idx], path=files[idx])
+                item.set_icon(self.config['icons'][status[idx]])
                 self.fileList.addTopLevelItem(item)
         elif self.project is not None and self.project.is_open():
             file_items = [self.project.index_id[idx] for idx in files if idx in self.project.index_id.keys()]
@@ -178,8 +183,10 @@ class FileListDock(QDockWidget):
             index = sorted(range(len(file_items)), key=lambda k: file_names[k])
             for idx in index:
                 file_item = file_items[idx]
-                item = ImageTreeItem(status=file_item.status(),
+                status = file_item.status()
+                item = ImageTreeItem(status=status,
                                      path=file_item.image_path(), idx=file_item.idx())
+                item.set_icon(self.config['icons'][status])
                 folder = file_item.folder()
                 if folder is None:
                     self.fileList.addTopLevelItem(item)
@@ -187,6 +194,7 @@ class FileListDock(QDockWidget):
                     self.folders[folder].addChild(item)
                 else:
                     folder = FolderTreeItem(folder)
+                    folder.set_icon(self.config['icons'][FOLDER])
                     self.fileList.addTopLevelItem(folder)
                     self.folders[folder] = folder
                     folder.addChild(item)
@@ -218,6 +226,7 @@ class FileListDock(QDockWidget):
             if folder_name not in self.folders.keys():
                 self.project.add_folder(folder_name)
                 folder = FolderTreeItem(folder_name)
+                folder.set_icon(self.config['icons'][FOLDER])
                 self.fileList.addTopLevelItem(folder)
                 self.folders[folder_name] = folder
                 if new:
@@ -302,18 +311,18 @@ class FileListDock(QDockWidget):
 
     def _change_mark(self, item, status):
         if status == UNFINISHED:
-            item.setIcon(0, QIcon(ICONS[FINISHED]))
+            item.setIcon(0, self.config['icons'][FINISHED])
             return FINISHED
         if status == FINISHED:
-            item.setIcon(0, QIcon(ICONS[CONFIRMED]))
+            item.setIcon(0, self.config['icons'][CONFIRMED])
             return CONFIRMED
         if status == CONFIRMED:
-            item.setIcon(0, QIcon(ICONS[PROBLEM]))
+            item.setIcon(0, self.config['icons'][PROBLEM])
             return PROBLEM
         if status == PROBLEM:
-            item.setIcon(0, QIcon(ICONS[UNFINISHED]))
+            item.setIcon(0, self.config['icons'][UNFINISHED])
             return UNFINISHED
-        item.setIcon(0, QIcon(ICONS[UNFINISHED]))
+        item.setIcon(0, self.config['icons'][UNFINISHED])
         return UNFINISHED
 
     def close_project(self):
