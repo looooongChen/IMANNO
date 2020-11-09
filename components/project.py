@@ -115,7 +115,7 @@ class Item(object):
         if status in [FINISHED, UNFINISHED, CONFIRMED, PROBLEM]:
             anno_path = self.annotation_path()
             if anno_path is not None:
-                with h5py.File(anno_path) as location:
+                with h5py.File(anno_path, 'a') as location:
                     location.attrs['status'] = status
                 self.data['status'] = status
 
