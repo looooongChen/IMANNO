@@ -11,72 +11,72 @@ from .enumDef import *
 #### label classes ####
 #######################
 
-class Attribute(object):
+# class Property(object):
 
-    def __init__(self, name, label_list=None):
-        """
-        Args:
-            name: name of the attribute e.g. Color
-            label_list: a list of label names e.g. ['red', 'blue' ...]
-        """
-        self.name = name
-        self.labels = {} # label_name - label_object
-        if label_list is not None:
-            for l in label_list:
-                self.add_label(l)
+#     def __init__(self, name, label_list=None):
+#         """
+#         Args:
+#             name: name of the attribute e.g. Color
+#             label_list: a list of label names e.g. ['red', 'blue' ...]
+#         """
+#         self.name = name
+#         self.labels = {} # label_name - label_object
+#         if label_list is not None:
+#             for l in label_list:
+#                 self.add_label(l)
 
-    def add_label(self, label_name, label_color=None):
-        if label_name not in self.labels.keys():
-            self.labels[label_name] = Label(self, label_name, label_color)
+#     def add_label(self, label_name, label_color=None):
+#         if label_name not in self.labels.keys():
+#             self.labels[label_name] = Label(self, label_name, label_color)
 
-    def remove_label(self, label):
-        label_name = label.label_name if isinstance(label, Label) else label
-        if label_name in self.labels.keys():
-            del self.labels[label.label_name]
+#     def remove_label(self, label):
+#         label_name = label.label_name if isinstance(label, Label) else label
+#         if label_name in self.labels.keys():
+#             del self.labels[label.label_name]
     
-    def get_label(self, label_name):
-        if label_name in self.labels.keys():
-            return self.labels[label_name]
-        else:
-            return None
+#     def get_label(self, label_name):
+#         if label_name in self.labels.keys():
+#             return self.labels[label_name]
+#         else:
+#             return None
     
-    def rename(self, name):
-        if isinstance(name, str):
-            self.name = name
-            for l in self.labels:
-                l.attr_name = name
+#     def rename(self, name):
+#         if isinstance(name, str):
+#             self.name = name
+#             for l in self.labels:
+#                 l.attr_name = name
 
-    def save(self, location):
-        """
-        Args:
-            location: a hdf5 root
-        """
-        attr_group = location.require_group('attributes')
-        if self.name in attr_group.keys():
-            del attr_group[self.name]
-        label_group = attr_group.create_group(self.name)
-        for label_name, label_obj in self.labels.items():
-            label_group.create_dataset(label_name, shape=(3,), dtype='uint8')
-            label_group[label_name][0] = label_obj.color[0]
-            label_group[label_name][1] = label_obj.color[1]
-            label_group[label_name][2] = label_obj.color[2]
+#     def save(self, location):
+#         """
+#         Args:
+#             location: a hdf5 root
+#         """
+#         attr_group = location.require_group('attributes')
+#         if self.name in attr_group.keys():
+#             del attr_group[self.name]
+#         label_group = attr_group.create_group(self.name)
+#         for label_name, label_obj in self.labels.items():
+#             label_group.create_dataset(label_name, shape=(3,), dtype='uint8')
+#             label_group[label_name][0] = label_obj.color[0]
+#             label_group[label_name][1] = label_obj.color[1]
+#             label_group[label_name][2] = label_obj.color[2]
 
 
-class Label(object):
+# class Label(object):
 
-    def __init__(self, attr, label_name, color=None):
-        self.attr = attr
-        self.attr_name = attr.name
-        self.label_name = label_name
-        self.color = color
+#     def __init__(self, attr, label_name, color=None):
+#         self.attr = attr
+#         self.attr_name = attr.name
+#         self.label_name = label_name
+#         self.color = color
 
-    def set_color(self, r, g, b):
-        self.color = [r,g,b]
+#     def set_color(self, r, g, b):
+#         self.color = [r,g,b]
 
-    def rename(self, label_name):
-        if isinstance(label_name, str) and label_name not in self.attr.labels.keys():
-            self.attr.labels[label_name] = self.attr.labels.pop(self.label_name)
-            self.label_name = label_name
+#     def rename(self, label_name):
+#         if isinstance(label_name, str) and label_name not in self.attr.labels.keys():
+#             self.attr.labels[label_name] = self.attr.labels.pop(self.label_name)
+#             self.label_name = label_name
 
 ############################
 #### annotation classes ####
@@ -89,55 +89,18 @@ class Annotation(object):
     in addition, the method giving the graph object is also implemented in the Annotation class
     """
 
-    def __init__(self, timestamp, dataObject, type, **kwargs):
-        self.type = type
+    def __init__(self, timestamp, dataObject):
         self.timestamp = timestamp
         self.dataObject = dataObject
         self.graphObject = None
-        self.labels = []
 
-    def add_label(self, label_obj):
-        for i in range(len(self.labels)):
-            if self.labels[i].attr_name == label_obj.attr_name:
-                del self.labels[i]
-                break
-        self.labels.append(label_obj)
+    def set_label(self, prop, label):
+        self.dataObject['labels'][prop] = label
 
-    def remove_label(self, label_obj):
-        try:
-            index = self.labels.index(label_obj)
-            del self.labels[index]
-        except Exception as e:
-            return
-    
-    def save_labels(self, location):
-        """
-        save labels related to an Annotaion
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-        Returns: none
-
-        """
-        if 'labels' in list(location.keys()):
-            del location['labels']
-        label_group = location.require_group('labels')
-        for label in self.labels:
-            label_group.require_group(label.attr_name)
-            label_group[label.attr_name].attrs['label_name'] = label.label_name
-
-    @abstractmethod
-    def save_dataObject(self, location):
-        """
-        an abstract function
-        save the data of an Annotation(the data may be different for different kinds of dataObjects),
-        must be implemented in subclass
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-        Returns: none
-        """
-        pass
+    def remove_label(self, prop, label=None):
+        if prop in self.dataObject['labels'].keys():
+            if label is None or self.dataObject['labels'][prop] == label:
+                del self.dataObject['labels'][prop]
 
     @abstractmethod
     def get_graphObject(self, scale_factor):
@@ -149,60 +112,40 @@ class Annotation(object):
         """
         pass
 
-    def save(self, location):
-        """
-        save all information of an annotation
-        Args:
-            location: a hdf5 roof
-
-        Returns: none
-        """
-        # get the 'folder' to save the annotation, named by the timestamp
-        annotation = location.require_group('/annotations/' + self.timestamp)
-        # add attributes
-        annotation.attrs['type'] = self.type
-        annotation.attrs['timestamp'] = self.timestamp
-        # save data
-        self.save_dataObject(annotation)
-        # save labels
-        self.save_labels(annotation)
-
+    ## hdf5 compatible
     @classmethod
     def _load_annotation(cls, location):
         """
         an abstract function
-        from data in hdf5 file, regenerate a dataObject
+        from hdf5, regenerate a dataObject
         Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
+            location: a hdf5 group
         Returns: a dataObject, which contains data of a certrain annotation type
         """
         pass
 
     @classmethod
-    def load(cls, location, attr_group, **kwargs):
-        """
-        load data from a hdf5 group and return an Annotation object
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-            attr_group: a group of Attribute objects, saved as a dict (attr_name - attr_obj)
-        Returns: an Annotation object
-        """
-        timestamp = location.attrs['timestamp']
-        dataObject = cls._load_annotation(location)
-        if dataObject is not None:
-            annotation = cls(timestamp, dataObject, **kwargs)
+    def load(cls, anno, mode='json'):
+        ## hdf5 compatible
+        if mode == 'hdf5':
+            timestamp = anno.attrs['timestamp']
+            dataObject = cls._load_annotation(anno)
+            dataObject['labels'] = {}
+            if 'labels' in anno.keys():
+                for attr_name in anno['labels'].keys():
+                    label_name = anno['labels'][attr_name].attrs['label_name']
+                    dataObject['labels'][attr_name] = label_name
+        else:
+            timestamp = anno['timestamp']
+            dataObject = anno
 
-            if 'labels' in location.keys():
-                for attr_name in location['labels'].keys():
-                    if attr_name in attr_group.keys():
-                        label_name = location['labels'][attr_name].attrs['label_name']
-                        annotation.add_label(attr_group[attr_name].get_label(label_name))
-                    else:
-                        print("Warning: object label not found in the attribute group!")
+        if dataObject is not None:
+            annotation = cls(timestamp, dataObject)
             return annotation
         else:
             print("Warning: damaged annotation, will be cleaned after next save")
             return None
+
 
 class PointAnnotation(Annotation):
 
@@ -211,21 +154,9 @@ class PointAnnotation(Annotation):
         constructor of PointAnnotation
         Args:
             timestamp: time stamp
-            polygon: a QPolygonF object
+            pt: data of a dot annotation
         """
-        super().__init__(timestamp, pt, POINT)
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'pt' not in location.keys():
-            location.create_dataset('pt', shape=(2,), data=self.dataObject)
+        super().__init__(timestamp, pt)
 
     @classmethod
     def _load_annotation(cls, location):

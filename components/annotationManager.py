@@ -3,6 +3,7 @@ from PyQt5.QtGui import QPen, QBrush, QColor
 from PyQt5.QtWidgets import QGraphicsScene, QMessageBox  
 from datetime import datetime as datim
 import h5py
+import json
 import os
 
 from .annotations import *
@@ -13,7 +14,7 @@ class AnnotationManager(object):
 
         self.config = config
         self.status = UNFINISHED
-        self.attributes = {} # name - Attribute object
+        self.labels = {} # name - Property object
         self.annotations = {} # timestamp - Annotation object
 
         self.canvas = canvas
@@ -45,31 +46,23 @@ class AnnotationManager(object):
         else:
             return UNFINISHED
 
-    #################################
-    #### annotation file opening ####
-    #################################
-    
-    def load_annotation(self, annotation_path):
-        if annotation_path is not None:
-            self.annotation_path = annotation_path
-            self.load(annotation_path)
 
     ############################
     #### method for add new ####
     ############################
 
     def new_attribute(self, attr_name, label_list=None):
-        if attr_name not in self.attributes.keys():
-            self.attributes[attr_name] = Attribute(attr_name, label_list)
+        if attr_name not in self.labels.keys():
+            self.labels[attr_name] = Property(attr_name, label_list)
         else:
-            print("Attribute has existed!")
+            print("Property has existed!")
         self.saved = False
 
     def new_label(self, attr_name, label_name, label_color=None):
-        if attr_name in self.attributes.keys():
-            self.attributes[attr_name].add_label(label_name, label_color)
+        if attr_name in self.labels.keys():
+            self.labels[attr_name].add_label(label_name, label_color)
         else:
-            print("Attribute does not exist")
+            print("Property does not exist")
 
     def new_annotation(self, type, dataObject, skip_dlg=False):
 
@@ -101,14 +94,14 @@ class AnnotationManager(object):
 
     def add_label_to_selected_annotations(self, label_name, attr_name):
 
-        if attr_name not in (self.attributes.keys()):
+        if attr_name not in (self.labels.keys()):
             return
-        if label_name not in list(self.attributes[attr_name].labels.keys()):
+        if label_name not in list(self.labels[attr_name].labels.keys()):
             return
         annotations = self.get_selected_annotations()
         if annotations:
             for annotation in annotations:
-                label_obj = self.attributes[attr_name].labels[label_name]
+                label_obj = self.labels[attr_name].labels[label_name]
                 annotation.add_label(label_obj)
             self.saved = False
 
@@ -151,39 +144,39 @@ class AnnotationManager(object):
             assert isinstance(label, Label)
             label_obj = label
             attr_name = label.attr_name
-        elif attr_name in list(self.attributes.keys()):
-            label_obj = self.attributes[attr_name].get_label(label)
+        elif attr_name in list(self.labels.keys()):
+            label_obj = self.labels[attr_name].get_label(label)
         else:
             return
         self._remove_label_from_all_annotations(label_obj)
-        self.attributes[attr_name].remove_label(label_obj)
+        self.labels[attr_name].remove_label(label_obj)
 
         self.saved = False
 
     def remove_label_from_selected_annotation(self, label_name, attr_name):
-        if attr_name not in (self.attributes.keys()):
+        if attr_name not in (self.labels.keys()):
             return
-        if label_name not in list(self.attributes[attr_name].labels.keys()):
+        if label_name not in list(self.labels[attr_name].labels.keys()):
             return
         annotations = self.get_selected_annotations()
         if annotations:
             annotation = annotations[0]
-            label_obj = self.attributes[attr_name].labels[label_name]
+            label_obj = self.labels[attr_name].labels[label_name]
             annotation.remove_label(label_obj)
             self.saved = False
 
     def remove_attr(self, attr):
-        if isinstance(attr, Attribute):
+        if isinstance(attr, Property):
             attr_name = attr.attr_name
             attr_obj = attr
-        elif attr in list(self.attributes.keys()):
+        elif attr in list(self.labels.keys()):
             attr_name = attr
-            attr_obj = self.attributes[attr]
+            attr_obj = self.labels[attr]
         else:
             return
         for label_obj in attr_obj.labels.values():
             self._remove_label_from_all_annotations(label_obj)
-        del self.attributes[attr_name]
+        del self.labels[attr_name]
 
         self.saved = False
 
@@ -198,33 +191,28 @@ class AnnotationManager(object):
     def rename_label(self, name, label, attr_name=None):
         if isinstance(label, Label):
             label.rename(name)
-        elif attr_name in self.attributes.keys():
-            label = self.attributes[attr_name].get_label(label)
+        elif attr_name in self.labels.keys():
+            label = self.labels[attr_name].get_label(label)
             if label is not None:
                 label.rename(name)
         self.saved = False
 
     def rename_attr(self, name, attr):
-        if name not in self.attributes.keys():
-            if isinstance(attr, Attribute):
+        if name not in self.labels.keys():
+            if isinstance(attr, Property):
                 attr_obj = attr.rename(name)
-                self.attributes[name] = self.attributes.pop(attr.attr_name)
+                self.labels[name] = self.labels.pop(attr.attr_name)
                 self.saved = False
-            elif attr in self.attributes.keys():
-                self.attributes[attr].rename(name)
-                self.attributes[name] = self.attributes.pop(attr)
+            elif attr in self.labels.keys():
+                self.labels[attr].rename(name)
+                self.labels[name] = self.labels.pop(attr)
                 self.saved = False
 
 
-    ##################################
-    #### method for save and load ####
-    ##################################
+    #########################
+    #### annotation save ####
+    #########################
 
-    def close(self):
-        self.attributes = {} 
-        self.annotations = {}
-        self.saved = True
-        self.annotation_path = None
 
     def save(self, inquiry=True):
         if not self.saved:
@@ -234,88 +222,125 @@ class AnnotationManager(object):
 
     def save_to_file(self, filename):
 
-        if self.saved is True:
-            return
-        if filename is None:
+        if self.saved is True or filename is None:
             return
 
-        with h5py.File(filename, 'w') as location:
-            to_save = []
-            # save status
-            location.attrs['status'] = self.status
-            # save attributes and labels
-            if 'attributes' in location.keys():
-                del location['attributes']
-            for _, attr in self.attributes.items():
-                # attr.save() has its own clean-ups
-                attr.save(location)
-            # save the annotations
-            for timestamp in self.annotations.keys():
-                self.annotations[timestamp].save(location)
-                to_save.append(timestamp)
-            # some clean-up, same annotations may be deleted
-            annotation_grp = location.require_group('annotations')
-            for timestamp in annotation_grp.keys():
-                if timestamp not in to_save:
-                    del annotation_grp[timestamp]
+        anno_file = {'status': self.status,
+                     'labels': self.labels,
+                     'annotations': {}}
+        for timestamp, anno in self.annotations.items():
+            anno_file['annotations'][timestamp] = anno.dataObject
 
-            location.flush()
-            location.close()
+        with open(filename, 'w') as f:
+            json.dump(anno_file, f)
 
         self.saved = True
 
-
-    def load(self, filename):
+    def close(self):
+        self.labels = {} 
+        self.annotations = {}
         self.saved = True
-        self.attributes.clear()
-        self.annotations.clear()
+        self.annotation_path = None
 
-        print('Annotation loaded:', filename)
-        with h5py.File(filename, 'a') as location:
-            # load annotation status
-            if 'status' in location.attrs.keys():
-                self.status = location.attrs['status']
-            # load attritubutes and labels
-            self.load_attributes(location)
-            # load annotations
-            if 'annotations' in location.keys():
-                for timestamp in location['annotations']:
-                    annotation = self.load_single_annotation(location['annotations'][timestamp], self.attributes)
-                    if annotation is not None:
-                        self.add_annotation(annotation)
-
-            location.flush()
-            location.close()
+    ##########################
+    #### annotation load #####
+    ##########################
 
 
-    def load_attributes(self, location):
+    def load(self, annotation_path):
 
-        if 'attributes' not in location.keys():
-            print("Attributes not found !")
-            return
-        attributes = location['attributes']
+        if annotation_path is not None:
+            self.annotation_path = annotation_path
+
+            self.saved = True
+            self.labels.clear()
+            self.annotations.clear()
+
+            ## hdf5 compatible
+            ext = os.path.splitext(annotation_path)[-1]
+            if ext == '.hdf5':
+                with h5py.File(annotation_path, 'a') as location:
+                    # load annotation status
+                    if 'status' in location.attrs.keys():
+                        self.status = location.attrs['status']
+                    # load attritubutes and labels
+                    self.labels = self._load_labels(location)
+                    # load annotations
+                    if 'annotations' in location.keys():
+                        for timestamp in location['annotations']:
+                            annotation = self._load_annotation(location['annotations'][timestamp], mode='hdf5')
+                            if annotation is not None:
+                                self.add_annotation(annotation)
+
+                    location.flush()
+                    location.close()
+            else:
+                with open(annotation_path, mode='r') as f:
+                    anno_file = json.load(f)
+                    # load status
+                    self.status = anno_file['status']
+                    # load property and label list
+                    self.labels = anno_file['labels']
+                    # load annotations
+                    for timestamp, anno in anno_file['annotations'].items():
+                        annotation = self._load_annotation(anno)
+                        if annotation is not None:
+                            self.add_annotation(annotation)
+
+            print('Annotation loaded:', annotation_path)
+
+    ## hdf5 compatible
+    def _load_labels(self, anno_file):
+        
+        labels = {}
+        if 'attributes' not in anno_file.keys():
+            print("Propertys not found !")
+            return labels
+        attributes = anno_file['attributes']
         for attr_name in attributes.keys():
-            self.attributes[attr_name] = Attribute(attr_name)
+            labels[attr_name] = {}
             for label_name in attributes[attr_name].keys():
                 color = [attributes[attr_name][label_name][0],attributes[attr_name][label_name][1],
-                         attributes[attr_name][label_name][2]]
-                self.attributes[attr_name].add_label(label_name, color)
+                        attributes[attr_name][label_name][2]]
+                labels[attr_name][label_name] = color
+        return labels
 
-    def load_single_annotation(self, location, attr_group):
 
-        type = location.attrs['type']
-        if type == POLYGON:
-            return PolygonAnnotation.load(location, attr_group)
-        elif type == BBX:
-            return BBXAnnotation.load(location, attr_group)
-        elif type == OVAL:
-            return OVALAnnotation.load(location, attr_group)
-        elif type == POINT:
-            return PointAnnotation.load(location, attr_group)
-        elif type == LINE:
-            return LineAnnotation.load(location, attr_group)
+    def _load_annotation(self, anno, mode='json'):
+
+        ## hdf5 compatible
+        if mode == 'hdf5':
+            anno_type = anno.attrs['type']
+            if anno_type == POLYGON:
+                return PolygonAnnotation.load(anno, mode='hdf5')
+            elif anno_type == BBX:
+                return BBXAnnotation.load(anno, mode='hdf5')
+            elif anno_type == OVAL:
+                return OVALAnnotation.load(anno, mode='hdf5')
+            elif anno_type == POINT:
+                return PointAnnotation.load(anno, mode='hdf5')
+            elif anno_type == LINE:
+                return LineAnnotation.load(anno, mode='hdf5')
+            else:
+                print("Unknown annotation type")
         else:
-            print("Unknown annotation type")
+            anno_type = anno['type']
+            if anno_type == POLYGON:
+                return PolygonAnnotation.load(anno)
+            elif anno_type == BBX:
+                return BBXAnnotation.load(anno)
+            elif anno_type == OVAL:
+                return OVALAnnotation.load(anno)
+            elif anno_type == POINT:
+                return PointAnnotation.load(anno)
+            elif anno_type == LINE:
+                return LineAnnotation.load(anno)
+            else:
+                print("Unknown annotation type")
+
+    #################
+    #### display ####
+    #################
 
     def appearance(self, anno, display_channel):
         if isinstance(display_channel, str):

@@ -185,7 +185,7 @@ class MainWindow(QMainWindow):
     
     def load_annotation(self, annotation_path):
         if annotation_path is not None:
-            self.annotationMgr.load_annotation(annotation_path)
+            self.annotationMgr.load(annotation_path)
             self.canvas.add_graphItems()
             self.canvas.refresh()
             self.labelDisp.refresh()

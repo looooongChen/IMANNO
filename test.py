@@ -25,6 +25,8 @@ for i in range(1000):
         data = json.load(f)
         a = data['type']
         a = np.array(data['coords'])
+
+print(data)
 print(time.time() - s)
 
 
