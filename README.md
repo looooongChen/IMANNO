@@ -70,6 +70,11 @@ Note: conflict labels will be delete, so please make sure the lables are consite
 
 Annotations are saved in .hdf5 file with the same name of the image. Some tools are provided to export the annotations as other formats.
 
+#### .json struture ####
+
+anno_file = {'property': {'label1': [r,g,b], 'label2': [r,g,b], ...},
+             'annotations': {'timestamp': , ... } }
+
 #### .hdf5 structure
 /attributes/<attr_name>/<label_name>
 /annotations/<timestamp_of_annotation>(attr:type, timestamp)  
@@ -79,19 +84,39 @@ Polygon:
 - /annotations/<timestamp_of_annotation>/boundingBox:(4,)
 - /annotations/<timestamp_of_annotation>/polygon:(N,2)
 
+anno_polygon = {'type': 'polygon',
+                'labels': {propperty: label, ...},
+                'bbx': [x, y, w, h],
+                'coords': (N, 2)}
+
 Livewire:
 - save as a polygon object
 
 Bouding box:  
-- /annotations/<timestamp_of_annotation>/boundingBox:(4,)   
+- /annotations/<timestamp_of_annotation>/boundingBox:(4,)
 
-Ellipse:  
+anno_bbx = {'type': 'bbx',
+            'labels': {propperty: label, ...},
+            'bbx': [x, y, w, h]}
+
+Ellipse: 
+
 - /annotations/<timestamp_of_annotation>/center:(2,)  
 - /annotations/<timestamp_of_annotation>/angle:(1,)   
 - /annotations/<timestamp_of_annotation>/axis:(2,)  
 
+anno_ellipse = {'type': 'ellipse',
+                'labels': {propperty: label, ...},
+                'center': [x, y],
+                'angle': angle,
+                'axis': (a, b)}
+
 Dot:  
 - /annotations/<timestamp_of_annotation>/pt:(2,) 
+
+anno_dot = {'type': 'dot',
+            'labels': {propperty: label, ...},
+            'coords': [x, y]}
 
 Data structure
 - boundingBox(4,): x, y, w, h  
