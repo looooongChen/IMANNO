@@ -23,6 +23,7 @@ from components.commands import *
 from components.extract import AnnoExporter
 from components.projectMerge import ProjectMerger
 from components.annotationDistribute import AnnotationDistributor
+from components.projectReport import ProjectReport
 from components.setting import MaskDirDialog
 from components.mask2contour import mask2contour
 
@@ -115,6 +116,7 @@ class MainWindow(QMainWindow):
         # project menus
         self.actionProjectRemoveDuplicate.triggered.connect(self.project_remove_duplicate)
         self.actionProjectSearch.triggered.connect(self.project_search_images)
+        self.actionProjectReport.triggered.connect(self.project_report)
 
         # annotation menu actions
         self.actionBrowse.triggered.connect(lambda :self.set_tool(BROWSE))
@@ -205,8 +207,9 @@ class MainWindow(QMainWindow):
             if not os.path.isfile(image_path):
                 if QMessageBox.Yes == QMessageBox.question(None, "Image Path", "Image file not found, would you like to select file manually? You can also use 'Project->Reimport Images' to handle changed image locations in batches ", QMessageBox.Yes | QMessageBox.No):
                     image_path = QFileDialog.getOpenFileName(self, "Select File", self.config['fileDirectory'], filter="Images ("+' '.join(IMAGE_TYPES)+")")[0]
-                    self.project.set_image_path(idx, image_path)
-                    image.setText(self.project.get_image_name(idx))
+                    if os.path.exists(image_path):
+                        self.project.set_image_path(idx, image_path)
+                        image.setText(self.project.get_image_name(idx))
         else:
             image_path = image.path if isinstance(image, ImageTreeItem) else image
             annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT 
@@ -240,7 +243,7 @@ class MainWindow(QMainWindow):
             else:
                 filename = ''
         
-        if os.path.isfile(filename):
+        if len(filename)>0:
             self.project.open(filename)
             if self.project.is_open():
                 self.fileList.init_list(self.project.index_id.keys(), mode='project')
@@ -331,14 +334,12 @@ class MainWindow(QMainWindow):
         if self.project.is_open() and os.path.samefile(path, self.project.proj_file):
             self.open_project(path)
 
-    # def collect_annotations(self):
-    #     self.annotationMgr.save()
-    #     self.project.collect()
-    #     self.fileList.init_list(self.project.index_id.keys(), mode='project')
-    
-    # def distribute_annotations(self):
-    #     self.annotationMgr.save()
-    #     self.project.distribute()
+    def project_report(self):
+        report = ProjectReport(self.config)
+        report.init_table(self.project)
+        report.exec()
+        del report
+
 
     def project_close(self):
         self.fileList.close_project()

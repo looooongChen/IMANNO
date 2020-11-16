@@ -81,7 +81,7 @@ class Item(object):
                 os.makedirs(anno_dir)
             self.data['annotation_path'] = os.path.join('annotations', self.data['idx'], 'anno.'+ANNOTATION_EXT)
             anno_path = os.path.join(self.proj_dir, self.data['annotation_path'])
-            with h5py.File(anno_path) as location:
+            with h5py.File(anno_path, 'a') as location:
                 location.attrs['status'] = UNFINISHED
     
     def annotation_path(self):
@@ -208,7 +208,7 @@ class Project(object):
 
     ## folder operations
     def add_folder(self, folder_name):
-        if folder_name not in self.index_folder.keys():
+        if folder_name is not None and folder_name not in self.index_folder.keys():
             self.index_folder[folder_name] = []
     
     def delete_folder(self, folder_name, remove_image=True):
@@ -264,6 +264,7 @@ class Project(object):
             shutil.copy(annotation_path, item.annotation_path())
         # update index
         self.index_id[idx] = item
+        self.add_folder(folder)
         if folder in self.index_folder.keys():
             item.set_folder(folder)
             self.index_folder[folder].append(item)
@@ -395,6 +396,29 @@ class Project(object):
                     index[attr] = [item]
 
         return index
+
+    ## dataset report
+
+    def report(self):
+        if self.is_open():
+            progress = ProgressDiag(len(self.index_id), 'Counting...')
+            progress.show()
+
+            total, stats = 0, {}
+            for _, item in self.index_id.items():
+                t, s = anno_report(item.annotation_path())
+                progress.new_item('Counted: ' + item.image_path())
+                total += t
+                for k, v in s.items():
+                    if k not in stats.keys():
+                        stats[k] = {}
+                    for kk, vv in v.items():
+                        if kk not in stats[k].keys():
+                            stats[k][kk] = vv
+                        else:
+                            stats[k][kk] += vv
+        return total, stats        
+
     
     ## search missing images
 

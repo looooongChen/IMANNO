@@ -149,17 +149,28 @@ class ProjectMerger(QDialog):
             if int(progress*100/total) - self.progressBar.value() >= 1:
                     self.progressBar.setValue(progress*100/total)
             QCoreApplication.processEvents()
-            idx = item_src.idx
-            item_src = srcProject.index_id[idx]
-            if idx in dstProject.index_id.keys():
-                item_dst = dstProject.index_id[idx]
+            idx_src = item_src.idx
+            item_parent = item_src.parent()
+            item_src = srcProject.index_id[idx_src]
+            if idx_src in dstProject.index_id.keys():
+                idx_dst = idx_src
+                item_dst = dstProject.index_id[idx_dst]
                 checksum_src, checksum_dst = item_src.checksum(), item_dst.checksum()
-                if checksum_src is not None and checksum_src == checksum_dst:
-                    if mode == 'merge':
-                        anno_merge(item_dst.annotation_path(), item_src.annotation_path())
-                    else:
-                        shutil.copy(item_src.annotation_path(), item_dst.annotation_path())
-                    dstProject.set_status(idx, get_status(item_dst.annotation_path()))
+                if checksum_src is None or checksum_dst is None or checksum_src != checksum_dst:
+                    folder = None if item_parent is None else item_parent.text(0)
+                    idx_dst = dstProject.add_image(item_src.image_path(), folder)
+                    item_dst = dstProject.index_id[idx_dst]
+            else:
+                folder = None if item_parent is None else item_parent.text(0)
+                idx_dst = dstProject.add_image(item_src.image_path(), folder)
+                item_dst = dstProject.index_id[idx_dst]
+            
+            if mode == 'merge':
+                anno_merge(item_dst.annotation_path(), item_src.annotation_path())
+            else:
+                shutil.copy(item_src.annotation_path(), item_dst.annotation_path())
+            dstProject.set_status(idx_dst, get_status(item_dst.annotation_path()))
+                
         dstProject.save()      
         self.projectMerged.emit(dstProject.proj_file)
         self.init_fileList(dstProject, fileList='dst')

@@ -86,6 +86,7 @@
     <addaction name="actionProjectMerge"/>
     <addaction name="actionProjectRemoveDuplicate"/>
     <addaction name="actionProjectSearch"/>
+    <addaction name="actionProjectReport"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuProject"/>
@@ -472,6 +473,24 @@
    </property>
    <property name="text">
     <string>Collect from File Locations</string>
+   </property>
+  </action>
+  <action name="actionProject_Info">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/report.png</normaloff>../icons/report.png</iconset>
+   </property>
+   <property name="text">
+    <string>Project Report</string>
+   </property>
+  </action>
+  <action name="actionProjectReport">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/report.png</normaloff>../icons/report.png</iconset>
+   </property>
+   <property name="text">
+    <string>Project Report</string>
    </property>
   </action>
  </widget>

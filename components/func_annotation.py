@@ -58,3 +58,22 @@ def get_status(annotation_path):
                 return UNFINISHED
 
 
+def anno_report(file):
+    stats = {}
+    if not os.path.isfile(file):
+        return 0, stats
+    with h5py.File(file, 'r') as f:
+        if not 'annotations' in f:
+            return 0, stats
+        for k, _ in f['/annotations'].items():
+            for kk, vv in f['annotations/'+k+'/labels'].items():
+                if kk not in stats.keys():
+                    stats[kk] = {}
+                label_name = vv.attrs['label_name']
+                if label_name not in stats[kk].keys():
+                    stats[kk][label_name] = 1
+                else:
+                    stats[kk][label_name] += 1
+        return len(f['/annotations']), stats
+
+

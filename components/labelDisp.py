@@ -157,7 +157,7 @@ class LabelDispDock(QDockWidget):
         if len(filename) == 0:
             return
         if filename.endswith('.hdf5'):
-            location = h5py.File(filename)
+            location = h5py.File(filename, 'r')
             if len(self.annotationMgr.attributes) != 0:
                 answer =  QMessageBox.question(self, 'Warning',
                                                "You want to overwrite all labels, the labels added to annotations will get lost!",
@@ -180,7 +180,7 @@ class LabelDispDock(QDockWidget):
             filename = QFileDialog.getSaveFileName(parent=self, caption='Select Export File...', filter='HDF5 Files (*.hdf5)', directory=self.config['defaultLabelListDir'])[0]
         if len(filename) == 0:
             return
-        location = h5py.File(filename)
+        location = h5py.File(filename, 'a')
         for attr_name, attr in self.annotationMgr.attributes.items():
             # attr.save() has its own clean-ups
             attr.save(location)
