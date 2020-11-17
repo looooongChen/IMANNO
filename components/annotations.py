@@ -89,10 +89,19 @@ class Annotation(object):
     in addition, the method giving the graph object is also implemented in the Annotation class
     """
 
-    def __init__(self, timestamp, dataObject):
+    def __init__(self, timestamp, obj):
+        '''
+        Args:
+            timestamp: timestamp timestamp = datim.today().isoformat('@')
+            obj: dataObject or graphObject
+        '''
         self.timestamp = timestamp
-        self.dataObject = dataObject
-        self.graphObject = None
+        if isinstance(obj, dict):
+            self.dataObject = obj
+            self.graphObject = self.get_graphObject(obj)
+        else:
+            self.dataObject = self.get_dataObject(obj)
+            self.graphObject = obj
 
     def set_label(self, prop, label):
         self.dataObject['labels'][prop] = label
@@ -103,12 +112,18 @@ class Annotation(object):
                 del self.dataObject['labels'][prop]
 
     @abstractmethod
-    def get_graphObject(self, scale_factor):
+    def get_graphObject(self, dataObject):
         """
-        an method to return the graph object,
-        notice that graphObject and dataObject may be different in some cases
-        in that case the method should be overwritten
-        :return: graphObject
+        an method to return the graph object from the data object
+        Return: graphObject
+        """
+        pass
+
+    @abstractmethod
+    def get_dataObject(self, graphObject):
+        """
+        an method to return the data object from the graph object,
+        Return: graphObject
         """
         pass
 
