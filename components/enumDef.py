@@ -10,9 +10,11 @@ BROWSE = 'browse'
 POLYGON = 'polygon'
 LIVEWIRE = 'livewire'
 OVAL = 'oval'
-POINT = 'point'
+# POINT = 'point'
+DOT = 'dot'
 BBX = 'bouding box'
-LINE = 'line'
+# LINE = 'line'
+CURVE = 'curve'
 
 ZOOM_IN_RATE = 1.2
 ZOOM_OUT_RATE = 1/ZOOM_IN_RATE

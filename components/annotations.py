@@ -1,6 +1,6 @@
 from PyQt5.QtCore import Qt, QRectF, QPointF, QSizeF
 from PyQt5.QtGui import QPolygonF, QColor, QTransform, QPainter, QPainterPath  
-from PyQt5.QtWidgets import QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem, QGraphicsPathItem
+from PyQt5.QtWidgets import QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem
 import numpy as np
 import math
 
@@ -98,10 +98,10 @@ class Annotation(object):
         self.timestamp = timestamp
         if isinstance(obj, dict):
             self.dataObject = obj
-            self.graphObject = self.get_graphObject(obj)
-        else:
-            self.dataObject = self.get_dataObject(obj)
+            self.set_graphObject(obj)
+        elif isinstance(obj, QGraphicsItem):
             self.graphObject = obj
+            self.set_dataObject(obj)
 
     def set_label(self, prop, label):
         self.dataObject['labels'][prop] = label
@@ -112,304 +112,265 @@ class Annotation(object):
                 del self.dataObject['labels'][prop]
 
     @abstractmethod
-    def get_graphObject(self, dataObject):
+    def set_graphObject(self, dataObject):
         """
-        an method to return the graph object from the data object
-        Return: graphObject
+        an abstract method to set and return the self.graphObject from the data object
+        Return: self.graphObject
         """
         pass
 
     @abstractmethod
-    def get_dataObject(self, graphObject):
+    def set_dataObject(self, graphObject):
         """
-        an method to return the data object from the graph object,
-        Return: graphObject
+        an abstract method to set and return the self.dataObject from the graph object,
+        Return: self.dataObject
         """
         pass
 
     ## hdf5 compatible
     @classmethod
-    def _load_annotation(cls, location):
+    def dataObject_from_hdf5(cls, anno):
+        dataObject = {'timestamp': anno.attrs['timestamp'],
+                      'labels': {}}
+        if 'labels' in anno.keys():
+            for attr_name in anno['labels'].keys():
+                label_name = anno['labels'][attr_name].attrs['label_name']
+                dataObject['labels'][attr_name] = label_name
+
+        return dataObject
+
+
+
+class DotAnnotation(Annotation):
+
+    def __init__(self, timestamp, dot):
         """
-        an abstract function
-        from hdf5, regenerate a dataObject
         Args:
-            location: a hdf5 group
-        Returns: a dataObject, which contains data of a certrain annotation type
+            timestamp: timestamp
+            dot: {'timestamp': datim.today().isoformat('@'),  
+                  'type': DOT,  
+                  'labels': {propperty: label, ...},  
+                  'coords': [x, y]}
+                or QGraphicsPolygonItem  
         """
-        pass
+        super().__init__(timestamp, dot)
+        self.radius = 5
 
-    @classmethod
-    def load(cls, anno, mode='json'):
-        ## hdf5 compatible
-        if mode == 'hdf5':
-            timestamp = anno.attrs['timestamp']
-            dataObject = cls._load_annotation(anno)
-            dataObject['labels'] = {}
-            if 'labels' in anno.keys():
-                for attr_name in anno['labels'].keys():
-                    label_name = anno['labels'][attr_name].attrs['label_name']
-                    dataObject['labels'][attr_name] = label_name
-        else:
-            timestamp = anno['timestamp']
-            dataObject = anno
+    def _star(self, center, R):
+        star = QPointF(center[0], center[1]) + QPolygonF([QPointF(0,R), QPointF(R/3,R/3), QPointF(R,0), QPointF(R/3,-R/3), QPointF(0,-R), QPointF(-R/3,-R/3), QPointF(-R,0), QPointF(-R/3,R/3)])
+        star = QGraphicsPolygonItem(star)
+        return star
 
-        if dataObject is not None:
-            annotation = cls(timestamp, dataObject)
-            return annotation
-        else:
-            print("Warning: damaged annotation, will be cleaned after next save")
-            return None
-
-
-class PointAnnotation(Annotation):
-
-    def __init__(self, timestamp, pt):
-        """
-        constructor of PointAnnotation
-        Args:
-            timestamp: time stamp
-            pt: data of a dot annotation
-        """
-        super().__init__(timestamp, pt)
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            return np.array([location['pt'][0], location['pt'][1]])
-        except Exception as e:
-            print('An exception occurred while loading a point annotation: ', e)
-            return None
-
-    def get_graphObject(self, radius=5):
-
-        bbx = QRectF()
-        bbx.setTopLeft(QPointF(self.dataObject[0]-radius, self.dataObject[1]-radius))
-        bbx.setSize(QSizeF(radius*2, radius*2))
-        ellipse = QGraphicsEllipseItem(bbx)
-        self.graphObject = ellipse
+    def set_graphObject(self, obj):
+        self.graphObject = self._star(obj['coords'], self.radius)
         return self.graphObject
 
-class LineAnnotation(Annotation):
+    def adjust_graphObject(self, radius):
+        self.radius = radius
+        self.graphObject = self._star(self.dataObject['coords'], self.radius)
+        return self.graphObject
 
-    def __init__(self, timestamp, line):
-        """
-        constructor of LineAnnotation
-        Args:
-            timestamp: time stamp
-            line: a nx2 numpy containing coordinated of the line
-        """
-        super().__init__(timestamp, line, LINE)
+    def set_dataObject(self, obj):
+        self.dataObject = {'timestamp': self.timestamp,  
+                           'type': DOT,  
+                           'labels': {},  
+                           'coords': [0, 0]}
+        center = obj.polygon().boundingRect().center()
+        self.dataObject['coords'] = [center.x(), center.y()]
+        return self.dataObject
     
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'boundingBox' not in location.keys():
-            # print('saved', self._get_boundingBox())
-            bbx = self._get_boundingBox()
-            location.create_dataset('boundingBox', shape=(4,), data=bbx)
-
-        if 'line' not in location.keys():
-            pts = np.stack([self.dataObject[:,0]-bbx[0], self.dataObject[:,1]-bbx[1]], axis=1)
-            location.create_dataset('line', shape=self.dataObject.shape, data=pts)
-
-
     @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            bbx = location['boundingBox']
-            line = np.stack([location['line'][:,0]+bbx[0], location['line'][:,1]+bbx[1]], axis=1)
-            return line
-        except Exception as e:
-            print('An exception occurred while loading a line: ', e)
-            return None
+    def dataObject_from_hdf5(cls, anno):
+        dataObject = Annotation.dataObject_from_hdf5(anno)
+        dataObject['type'] = DOT
+        dataObject['coords'] = [anno['pt'][0], anno['pt'][1]]
+        return dataObject
 
-    def get_graphObject(self, scale_factor=(1,1)):
-        line = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
-        path = QPainterPath()
-        path.addPolygon(line)
-        self.graphObject = QGraphicsPathItem(path)
+class CurveAnnotation(Annotation):
+
+    def __init__(self, timestamp, curve):
+        """
+        Args:
+            timestamp: timestamp
+            curve: {'timestamp': datim.today().isoformat('@'),  
+                    'type': CURVE,  
+                    'labels': {propperty: label, ...},  
+                    'coords': [[x1, y1], [x2, y2], ...],
+                    'bbx': [x, y, w, h]}
+                  or QGraphicsPathItem
+        """
+        super().__init__(timestamp, curve)
+    
+    def set_graphObject(self, obj):
+        curve = QPainterPath()
+        curve.addPolygon(QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']]))
+        self.graphObject = QGraphicsPathItem(curve)
         return self.graphObject
 
-    def _get_boundingBox(self):
-        """
-        get the bounding box of a polygon
-        Returns: a numpy arrary [x, y, width, height]
-        """
-        originalRect = QRectF(self.graphObject.boundingRect())
-        bbx = np.zeros((4,))
-        bbx[0] = originalRect.x()
-        bbx[1] = originalRect.y()
-        bbx[2] = originalRect.width()
-        bbx[3] = originalRect.height()
-        return bbx
+    def set_dataObject(self, obj):
+        self.dataObject = {'timestamp': self.timestamp,  
+                           'type': CURVE,  
+                           'labels': {},  
+                           'coords': [],
+                           'bbx': [0,0,0,0]}
+        # add coords
+        curve = obj.path()
+        for i in range(curve.elementCount()):
+            pt = curve.elementAt(i)
+            self.dataObject['coords'].append([pt.x(), pt.y()])
+        # add bbx
+        bbx = curve.boundingRect()
+        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        return self.dataObject
+    
+    @classmethod
+    def dataObject_from_hdf5(cls, anno):
+        dataObject = Annotation.dataObject_from_hdf5(anno)
+        dataObject['type'] = CURVE
+        dataObject['bbx'] = list(anno['boundingBox'])
+        xx, yy = anno['line'][:,0]+dataObject['bbx'][0], anno['line'][:,1]+dataObject['bbx'][1]
+        dataObject['coords'] = [[x, y] for x,y in zip(xx, yy)]
+        return dataObject
+    
 
 class PolygonAnnotation(Annotation):
 
     def __init__(self, timestamp, polygon):
         """
-        constructor of PolygonAnnotation
         Args:
-            timestamp: time stamp
-            polygon: a nx2 numpy containing coordinated of the polygon
+            timestamp: timestamp
+            polygon: {'timestamp': datim.today().isoformat('@'),  
+                      'type': POLYGON,  
+                      'labels': {propperty: label, ...},  
+                      'coords': [[x1, y1], [x2, y2], ...],
+                      'bbx': [x, y, w, h]}
+                    or QGraphicsPathItem
         """
-        super().__init__(timestamp, polygon, POLYGON)
-    
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
+        super().__init__(timestamp, polygon)
 
-        Returns: none
-        """
-        if 'boundingBox' not in location.keys():
-            # print('saved', self._get_boundingBox())
-            bbx = self._get_boundingBox()
-            location.create_dataset('boundingBox', shape=(4,), data=bbx)
 
-        if 'polygon' not in location.keys():
-            pts = np.stack([self.dataObject[:,0]-bbx[0], self.dataObject[:,1]-bbx[1]], axis=1)
-            location.create_dataset('polygon', shape=self.dataObject.shape, data=pts)
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            bbx = location['boundingBox']
-            polygon = np.stack([location['polygon'][:,0]+bbx[0], location['polygon'][:,1]+bbx[1]], axis=1)
-            return polygon
-        except Exception as e:
-            print('An exception occurred while loading a polygon: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor=(1,1)):
-        polygon = QPolygonF([QPointF(self.dataObject[i, 0]*scale_factor[0], self.dataObject[i, 1]*scale_factor[1]) for i in range(self.dataObject.shape[0])])
+    def set_graphObject(self, obj):
+        polygon = QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']])
         self.graphObject = QGraphicsPolygonItem(polygon)
         return self.graphObject
+
+    def set_dataObject(self, obj):
+        self.dataObject = {'timestamp': self.timestamp,  
+                           'type': POLYGON,  
+                           'labels': {},  
+                           'coords': [],
+                           'bbx': [0,0,0,0]}
+        # add coords
+        polygon = obj.polygon()
+        for i in range(polygon.count()):
+            pt = polygon[i]
+            self.dataObject['coords'].append([pt.x(), pt.y()])
+        # add bbx
+        bbx = polygon.boundingRect()
+        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        return self.dataObject
     
-    def _get_boundingBox(self):
-        """
-        get the bounding box of a polygon
-        Returns: a numpy arrary [x, y, width, height]
-        """
-        originalRect = QRectF(self.graphObject.boundingRect())
-        bbx = np.zeros((4,))
-        bbx[0] = originalRect.x()
-        bbx[1] = originalRect.y()
-        bbx[2] = originalRect.width()
-        bbx[3] = originalRect.height()
-        return bbx
+    @classmethod
+    def dataObject_from_hdf5(cls, anno):
+        dataObject = Annotation.dataObject_from_hdf5(anno)
+        dataObject['type'] = POLYGON
+        dataObject['bbx'] = list(anno['boundingBox'])
+        xx, yy = anno['polygon'][:,0]+dataObject['bbx'][0], anno['polygon'][:,1]+dataObject['bbx'][1]
+        dataObject['coords'] = [[x, y] for x,y in zip(xx, yy)]
+        return dataObject
+   
 
 class BBXAnnotation(Annotation):
 
     def __init__(self, timestamp, bbx):
         """
-        constructor of PolygonAnnotation
         Args:
-            timestamp: time stamp
-            polygon: a QRectF object
+            timestamp: timestamp
+            bbx: {'timestamp': datim.today().isoformat('@'),  
+                  'type': BBX,  
+                  'labels': {propperty: label, ...}, 
+                  'bbx': [x, y, w, h]}
+                or QGraphicsRectItem
         """
-        super().__init__(timestamp, bbx, BBX)
-    
-    # def process_dataObject(self, dataObject, scale_factor):
-    #     dataObject[0] = dataObject[0]/scale_factor[0]
-    #     dataObject[1] = dataObject[1]/scale_factor[1]
-    #     dataObject[2] = dataObject[2]/scale_factor[0]
-    #     dataObject[3] = dataObject[3]/scale_factor[1]
-    #     return dataObject
+        super().__init__(timestamp, bbx)
 
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-        if 'boundingBox' not in location.keys():
-            # location.create_dataset('boundingBox', shape=(4,), data=self._get_boundingBox())
-            location.create_dataset('boundingBox', shape=(4,), data=self.dataObject)
-
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a dataObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a dataObject
-        """
-        try:
-            bbx = location['boundingBox'].value
-            # boundingBox = QRectF(bbx[0], bbx[1], bbx[2], bbx[3])
-            return bbx
-        except Exception as e:
-            print('An exception occurred while loading a boundingBox: ', e)
-            return None
-
-    def get_graphObject(self, scale_factor=(1,1)):
+    def set_graphObject(self, obj):
         bbx = QRectF()
-        bbx.setTopLeft(QPointF(self.dataObject[0]*scale_factor[0], self.dataObject[1]*scale_factor[1]))
-        bbx.setSize(QSizeF(self.dataObject[2]*scale_factor[0], self.dataObject[3]*scale_factor[1]))
+        bbx.setTopLeft(QPointF(obj['bbx'][0], obj['bbx'][1]))
+        bbx.setSize(QSizeF(obj['bbx'][2], obj['bbx'][3]))
         self.graphObject = QGraphicsRectItem(bbx)
         return self.graphObject
 
-class OVALAnnotation(Annotation):
-
-    def __init__(self, timestamp, paras):
-        """
-        constructor of PolygonAnnotation
-        Args:
-            timestamp: time stamp
-            polygon: a QRectF object
-        """
-        super().__init__(timestamp, paras, OVAL)
+    def set_dataObject(self, obj):
+        self.dataObject = {'timestamp': self.timestamp,  
+                           'type': BBX,  
+                           'labels': {},  
+                           'bbx': [0,0,0,0]}
+        # add bbx
+        bbx = obj.rect()
+        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        return self.dataObject
     
-    # def process_dataObject(self, dataObject, scale_factor):
+    @classmethod
+    def dataObject_from_hdf5(cls, anno):
+        dataObject = Annotation.dataObject_from_hdf5(anno)
+        dataObject['type'] = BBX
+        dataObject['bbx'] = list(anno['boundingBox'])
+        return dataObject
 
-    #     axis_major = dataObject['axis'][0]
-    #     axis_minor = dataObject['axis'][1]
-    #     c = math.cos(math.radians(dataObject['angle']))
-    #     s = math.sin(math.radians(dataObject['angle']))
-    #     axis_major = math.sqrt((axis_major * c / scale_factor[0]) ** 2 + (axis_major * s / scale_factor[1]) ** 2)
-    #     axis_minor = math.sqrt((axis_minor * s / scale_factor[0]) ** 2 + (axis_minor * c / scale_factor[1]) ** 2)
-    #     dataObject['axis'][0] = axis_major
-    #     dataObject['axis'][1] = axis_minor
 
-    #     dataObject['center'][0] = dataObject['center'][0] / scale_factor[0]
-    #     dataObject['center'][1] = dataObject['center'][1] / scale_factor[1]
+class EllipseAnnotation(Annotation):
 
-    #     return dataObject
+    def __init__(self, timestamp, ellipse):
+        """
+        Args:
+            timestamp: timestamp
+            ellipse: {'timestamp': datim.today().isoformat('@'),  
+                      'type': ELLIPSE,  
+                      'labels': {propperty: label, ...},  
+                      'coords': [x, y],  
+                      'angle': angle,  
+                      'axis': [axis_major, axis_minor],
+                      'bbx': [x, y, w, h]}
+        """
+        super().__init__(timestamp, ellipse)
+
+    def set_graphObject(self, obj):
+        bbx = QRectF()
+        # add ellipse
+        axis_major, axis_minor = obj['axis'][0], obj['axis'][1]
+        bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
+        bbx.setSize(QSizeF(axis_minor, axis_major))
+        self.graphObject = QGraphicsEllipseItem(bbx)
+        # transfrom
+        t = QTransform()
+        t.translate(obj['coords'][0], obj['coords'][1])
+        t.rotate(-1 * obj['angle'] + 90)
+        self.graphObject.setTransform(t)
+
+        return self.graphObject
+
+
+    def set_dataObject(self, obj):
+        self.dataObject = {'timestamp': self.timestamp,  
+                           'type': ELLIPSE,  
+                           'labels': {},  
+                           'coords': [0, 0],  
+                           'angle': 0,  
+                           'axis': [0, 0],
+                           'bbx': [0, 0, 0, 0]}
+        # add bbx
+        bbx = obj.rect()
+        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        return self.dataObject
+    
+    @classmethod
+    def dataObject_from_hdf5(cls, anno):
+        dataObject = Annotation.dataObject_from_hdf5(anno)
+        dataObject['type'] = BBX
+        dataObject['bbx'] = list(anno['boundingBox'])
+        return dataObject
+    
 
     def save_dataObject(self, location):
         """
@@ -452,24 +413,3 @@ class OVALAnnotation(Annotation):
             print('An exception occurred while loading a ellipse: ', e)
             return None
     
-    def get_graphObject(self, scale_factor=(1,1)):
-        bbx = QRectF()
-
-        axis_major = self.dataObject['axis'][0]
-        axis_minor = self.dataObject['axis'][1]
-        c = math.cos(math.radians(self.dataObject['angle']))
-        s = math.sin(math.radians(self.dataObject['angle']))
-        axis_major = math.sqrt((axis_major * c * scale_factor[0]) ** 2 + (axis_major * s * scale_factor[1]) ** 2)
-        axis_minor = math.sqrt((axis_minor * s * scale_factor[0]) ** 2 + (axis_minor * c * scale_factor[1]) ** 2)
-
-        bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
-        bbx.setSize(QSizeF(axis_minor, axis_major))
-        ellipse = QGraphicsEllipseItem(bbx)
-
-        t = QTransform()
-        t.translate(self.dataObject['center'][0]*scale_factor[0], self.dataObject['center'][1]*scale_factor[1])
-        t.rotate(-1 * self.dataObject['angle'] + 90)
-        ellipse.setTransform(t)
-
-        self.graphObject = ellipse
-        return self.graphObject

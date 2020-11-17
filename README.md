@@ -85,11 +85,11 @@ Polygon:
 - /annotations/<timestamp_of_annotation>/boundingBox:(4,)
 - /annotations/<timestamp_of_annotation>/polygon:(N,2)
 
-anno_polygon = {'timestamp': ,  
+anno_polygon = {'timestamp': datim.today().isoformat('@'),  
                 'type': 'polygon',
                 'labels': {propperty: label, ...},
-                'bbx': [x, y, w, h],
-                'coords': (N, 2)}
+                'coords': [[x1, y1], [x2, y2], ...], 
+                'bbx': [x, y, w, h]}
 
 Livewire:
 - save as a polygon object
@@ -97,7 +97,7 @@ Livewire:
 Bouding box:  
 - /annotations/<timestamp_of_annotation>/boundingBox:(4,)
 
-anno_bbx = {'timestamp': ,  
+anno_bbx = {'timestamp': datim.today().isoformat('@'),  
             'type': 'bbx',  
             'labels': {propperty: label, ...},  
             'bbx': [x, y, w, h]}
@@ -108,20 +108,27 @@ Ellipse:
 - /annotations/<timestamp_of_annotation>/angle:(1,)   
 - /annotations/<timestamp_of_annotation>/axis:(2,)  
 
-anno_ellipse = {'timestamp': ,  
+anno_ellipse = {'timestamp': datim.today().isoformat('@'),  
                 'type': 'ellipse',  
                 'labels': {propperty: label, ...},  
-                'center': [x, y],  
+                'coords': [x, y],  
                 'angle': angle,  
-                'axis': (a, b)}
+                'axis': [axis_major, axis_minor],
+                'bbx': [x, y, w, h]}
 
 Dot:  
 - /annotations/<timestamp_of_annotation>/pt:(2,) 
 
-anno_dot = {'timestamp': ,  
+anno_dot = {'timestamp': datim.today().isoformat('@'),  
             'type': 'dot',  
             'labels': {propperty: label, ...},  
             'coords': [x, y]}
+
+anno_curve = {'timestamp': datim.today().isoformat('@'),  
+              'type': 'curve',  
+              'labels': {propperty: label, ...},  
+              'coords': [[x1, y1], [x2, y2], ...],
+              'bbx': [x, y, w, h]}
 
 Data structure
 - boundingBox(4,): x, y, w, h  
