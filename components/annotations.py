@@ -11,72 +11,71 @@ from .enumDef import *
 #### label classes ####
 #######################
 
-# class Property(object):
+class Property(object):
 
-#     def __init__(self, name, label_list=None):
-#         """
-#         Args:
-#             name: name of the attribute e.g. Color
-#             label_list: a list of label names e.g. ['red', 'blue' ...]
-#         """
-#         self.name = name
-#         self.labels = {} # label_name - label_object
-#         if label_list is not None:
-#             for l in label_list:
-#                 self.add_label(l)
+    def __init__(self, name, label_list=None):
+        """
+        Args:
+            name: name of the attribute e.g. Color
+            label_list: a list of label names e.g. ['red', 'blue' ...]
+        """
+        self.name = name
+        self.labels = {} # label_name - label_object
+        if label_list is not None:
+            for l in label_list:
+                self.add_label(l)
 
-#     def add_label(self, label_name, label_color=None):
-#         if label_name not in self.labels.keys():
-#             self.labels[label_name] = Label(self, label_name, label_color)
+    def add_label(self, label_name, label_color=None):
+        if label_name not in self.labels.keys():
+            self.labels[label_name] = Label(self, label_name, label_color)
 
-#     def remove_label(self, label):
-#         label_name = label.label_name if isinstance(label, Label) else label
-#         if label_name in self.labels.keys():
-#             del self.labels[label.label_name]
+    def remove_label(self, label):
+        label_name = label.label_name if isinstance(label, Label) else label
+        if label_name in self.labels.keys():
+            del self.labels[label.label_name]
     
-#     def get_label(self, label_name):
-#         if label_name in self.labels.keys():
-#             return self.labels[label_name]
-#         else:
-#             return None
+    def get_label(self, label_name):
+        if label_name in self.labels.keys():
+            return self.labels[label_name]
+        else:
+            return None
     
-#     def rename(self, name):
-#         if isinstance(name, str):
-#             self.name = name
-#             for l in self.labels:
-#                 l.attr_name = name
+    def rename(self, name):
+        if isinstance(name, str):
+            self.name = name
+            for l in self.labels:
+                l.attr_name = name
 
-#     def save(self, location):
-#         """
-#         Args:
-#             location: a hdf5 root
-#         """
-#         attr_group = location.require_group('attributes')
-#         if self.name in attr_group.keys():
-#             del attr_group[self.name]
-#         label_group = attr_group.create_group(self.name)
-#         for label_name, label_obj in self.labels.items():
-#             label_group.create_dataset(label_name, shape=(3,), dtype='uint8')
-#             label_group[label_name][0] = label_obj.color[0]
-#             label_group[label_name][1] = label_obj.color[1]
-#             label_group[label_name][2] = label_obj.color[2]
+    def save(self, location):
+        """
+        Args:
+            location: a hdf5 root
+        """
+        attr_group = location.require_group('attributes')
+        if self.name in attr_group.keys():
+            del attr_group[self.name]
+        label_group = attr_group.create_group(self.name)
+        for label_name, label_obj in self.labels.items():
+            label_group.create_dataset(label_name, shape=(3,), dtype='uint8')
+            label_group[label_name][0] = label_obj.color[0]
+            label_group[label_name][1] = label_obj.color[1]
+            label_group[label_name][2] = label_obj.color[2]
 
 
-# class Label(object):
+class Label(object):
 
-#     def __init__(self, attr, label_name, color=None):
-#         self.attr = attr
-#         self.attr_name = attr.name
-#         self.label_name = label_name
-#         self.color = color
+    def __init__(self, prop, label, color=None):
+        self.prop = prop
+        self.label = label
+        self.color = color
 
-#     def set_color(self, r, g, b):
-#         self.color = [r,g,b]
+    def set_color(self, r, g, b):
+        self.color = [r,g,b]
 
-#     def rename(self, label_name):
-#         if isinstance(label_name, str) and label_name not in self.attr.labels.keys():
-#             self.attr.labels[label_name] = self.attr.labels.pop(self.label_name)
-#             self.label_name = label_name
+    def rename(self, label_name):
+        if isinstance(label_name, str) and label_name not in self.attr.labels.keys():
+            self.attr.labels[label_name] = self.attr.labels.pop(self.label_name)
+            self.label_name = label_name
 
 ############################
 #### annotation classes ####
@@ -339,13 +338,16 @@ class EllipseAnnotation(Annotation):
         bbx = QRectF()
         # add ellipse
         axis_major, axis_minor = obj['axis'][0], obj['axis'][1]
-        bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
-        bbx.setSize(QSizeF(axis_minor, axis_major))
+        # bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
+        # bbx.setSize(QSizeF(axis_minor, axis_major))
+        bbx.setTopLeft(QPointF(-1 * axis_major / 2, -1 * axis_minor / 2))
+        bbx.setSize(QSizeF(axis_major, axis_minor))
         self.graphObject = QGraphicsEllipseItem(bbx)
         # transfrom
         t = QTransform()
+        # t.rotate(-1 * obj['angle'] + 90)
+        t.rotate(-1 * obj['angle'])
         t.translate(obj['coords'][0], obj['coords'][1])
-        t.rotate(-1 * obj['angle'] + 90)
         self.graphObject.setTransform(t)
 
         return self.graphObject
@@ -359,57 +361,27 @@ class EllipseAnnotation(Annotation):
                            'angle': 0,  
                            'axis': [0, 0],
                            'bbx': [0, 0, 0, 0]}
-        # add bbx
-        bbx = obj.rect()
-        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        t = obj.transform()
+        self.dataObject['coords'] = [t.m31(), t.m32()] 
+        self.dataObject['angle'] = math.degrees(math.acos(t.m11()))
+        self.dataObject['axis'] = [obj.rect().x(), obj.rect().y()]
+        a, b = self.dataObject['axis'][0]/2, self.dataObject['axis'][1]/2
+        c, s = math.cos(math.radians(-self.dataObject['angle'])), math.sin(math.radians(-self.dataObject['angle']))
+        X, Y = math.sqrt((a*c)**2+(b*s)**2), math.sqrt((a*s)**2+(b*c)**2) 
+        self.dataObject['bbx'] = [t.m31()-X, t.m33()-Y, 2*X, 2*Y]
         return self.dataObject
     
     @classmethod
     def dataObject_from_hdf5(cls, anno):
         dataObject = Annotation.dataObject_from_hdf5(anno)
-        dataObject['type'] = BBX
-        dataObject['bbx'] = list(anno['boundingBox'])
+        dataObject['type'] = ELLIPSE
+        dataObject['coords'] = list(anno['center'])
+        dataObject['angle'] = anno['angle'].value
+        dataObject['axis'] = list(anno['axis'])
+        a, b = dataObject['axis'][0]/2, dataObject['axis'][1]/2
+        c, s = math.cos(math.radians(-dataObject['angle'])), math.sin(math.radians(-dataObject['angle']))
+        X, Y = math.sqrt((a*c)**2+(b*s)**2), math.sqrt((a*s)**2+(b*c)**2) 
+        dataObject['bbx'] = [dataObject['coords'][0]-X, dataObject['coords'][1]-Y, 2*X, 2*Y]
+        
         return dataObject
-    
-
-    def save_dataObject(self, location):
-        """
-        implementation of a abstract method
-        Args:
-            location: hdf5 group of a certain annotation (named as timestamp),
-                in which all information about an annotation is saved
-
-        Returns: none
-        """
-
-
-        if 'center' not in location.keys():
-            # location.create_dataset('center', shape=(2,), data=self._getCenter())
-            location.create_dataset('center', shape=(2,), data=self.dataObject['center'])
-        if 'angle' not in location.keys():
-            # location.create_dataset('angle', shape=(1,), data=self._getAngle())
-            location.create_dataset('angle', shape=(1,), data=self.dataObject['angle'])
-        if 'axis' not in location.keys():
-            # location.create_dataset('axis', shape=(2,), data=self._getAxis())
-            location.create_dataset('axis', shape=(2,), data=self.dataObject['axis'])
-
-
-    @classmethod
-    def _load_annotation(cls, location):
-        """
-        implementation of an abstract function
-        from data in hdf5 file, regenerate a graphObject
-        Args:
-            location: a hdf5 group corresponding to an annotation, named as timestamp
-        Returns: a graphObject
-        """
-        try:
-            paras = {}
-            paras['center'] = location['center'].value
-            paras['angle'] = location['angle'].value
-            paras['axis'] = location['axis'].value
-            return paras
-        except Exception as e:
-            print('An exception occurred while loading a ellipse: ', e)
-            return None
     

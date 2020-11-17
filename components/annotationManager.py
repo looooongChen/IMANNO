@@ -197,16 +197,9 @@ class AnnotationManager(object):
                 label.rename(name)
         self.saved = False
 
-    def rename_attr(self, name, attr):
-        if name not in self.labels.keys():
-            if isinstance(attr, Property):
-                attr_obj = attr.rename(name)
-                self.labels[name] = self.labels.pop(attr.attr_name)
-                self.saved = False
-            elif attr in self.labels.keys():
-                self.labels[attr].rename(name)
-                self.labels[name] = self.labels.pop(attr)
-                self.saved = False
+    def rename_property(self, prop, new_name):
+        if prop in self.labels.keys() and new_name not in self.labels.keys():
+            self.labels[new_name] = self.labels.pop(prop)
 
 
     #########################
@@ -280,7 +273,7 @@ class AnnotationManager(object):
                     # load status
                     self.status = anno_file['status']
                     # load property and label list
-                    self.labels = anno_file['labels']
+                    self.labels = self._load_labels(anno_file['labels'])
                     # load annotations
                     for timestamp, anno in anno_file['annotations'].items():
                         annotation = self._load_annotation(anno)
@@ -290,7 +283,8 @@ class AnnotationManager(object):
             print('Annotation loaded:', annotation_path)
 
     ## hdf5 compatible
-    def _load_labels(self, anno_file):
+    def _load_labels(self, anno_file, mode='json'):
+        
         
         labels = {}
         if 'attributes' not in anno_file.keys():
@@ -311,32 +305,35 @@ class AnnotationManager(object):
         ## hdf5 compatible
         if mode == 'hdf5':
             anno_type = anno.attrs['type']
-            if anno_type == POLYGON:
-                return PolygonAnnotation.load(anno, mode='hdf5')
-            elif anno_type == BBX:
-                return BBXAnnotation.load(anno, mode='hdf5')
-            elif anno_type == OVAL:
-                return OVALAnnotation.load(anno, mode='hdf5')
-            elif anno_type == POINT:
-                return PointAnnotation.load(anno, mode='hdf5')
-            elif anno_type == LINE:
-                return LineAnnotation.load(anno, mode='hdf5')
+            if anno_type == 'polygon':
+                anno = PolygonAnnotation.dataObject_from_hdf5(anno)
+            elif anno_type == 'bouding box':
+                anno = BBXAnnotation.dataObject_from_hdf5(anno)
+            elif anno_type == 'oval':
+                anno = EllipseAnnotation.dataObject_from_hdf5(anno)
+            elif anno_type == 'point':
+                anno = DotAnnotation.dataObject_from_hdf5(anno)
+            elif anno_type == 'line':
+                anno = CurveAnnotation.dataObject_from_hdf5(anno)
             else:
                 print("Unknown annotation type")
+                return None
+
+        anno_type = anno['type']
+        timestamp = anno['timestamp']
+        if anno_type == POLYGON:
+            return PolygonAnnotation(timestamp, anno)
+        elif anno_type == BBX:
+            return BBXAnnotation(timestamp, anno)
+        elif anno_type == ELLIPSE:
+            return EllipseAnnotation(timestamp, anno)
+        elif anno_type == DOT:
+            return DotAnnotation(timestamp, anno)
+        elif anno_type == CURVE:
+            return CurveAnnotation(timestamp, anno)
         else:
-            anno_type = anno['type']
-            if anno_type == POLYGON:
-                return PolygonAnnotation.load(anno)
-            elif anno_type == BBX:
-                return BBXAnnotation.load(anno)
-            elif anno_type == OVAL:
-                return OVALAnnotation.load(anno)
-            elif anno_type == POINT:
-                return PointAnnotation.load(anno)
-            elif anno_type == LINE:
-                return LineAnnotation.load(anno)
-            else:
-                print("Unknown annotation type")
+            print("Unknown annotation type")
+            return None
 
     #################
     #### display ####
