@@ -12,7 +12,8 @@ import sys
 from components.config import Config
 from components.image import Image
 from components.project import Project
-from components.annotationManager import *
+from components.labelManager import LabelManager
+from components.annotationManager import AnnotationManager
 from components.canvas import Canvas
 from components.labelDisp import LabelDispDock
 from components.fileList import FileListDock, ImageTreeItem
@@ -60,7 +61,8 @@ class MainWindow(QMainWindow):
 
         self.image = Image()
         # setup annotation manager
-        self.annotationMgr = AnnotationManager(self.config)
+        self.labelMgr = LabelManager(self.config)
+        self.annotationMgr = AnnotationManager(self.config, self.labelMgr)
         # setup project
         self.project = Project(self.annotationMgr)
         # setup the canvas

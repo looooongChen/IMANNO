@@ -6,15 +6,16 @@ import h5py
 import json
 import os
 
+from .labelManager import LabelManager
 from .annotations import *
 from .canvas import Canvas
 
 class AnnotationManager(object):
-    def __init__(self, config, canvas=None):
+    def __init__(self, config, labelMgr, canvas=None):
 
         self.config = config
         self.status = UNFINISHED
-        self.labels = {} # name - Property object
+        self.labelMgr = labelMgr
         self.annotations = {} # timestamp - Annotation object
 
         self.canvas = canvas
@@ -219,10 +220,10 @@ class AnnotationManager(object):
             return
 
         anno_file = {'status': self.status,
-                     'labels': self.labels,
+                     'labels': self.labelMgr.render_save(),
                      'annotations': {}}
         for timestamp, anno in self.annotations.items():
-            anno_file['annotations'][timestamp] = anno.dataObject
+            anno_file['annotations'][timestamp] = anno.render_save()
 
         with open(filename, 'w') as f:
             json.dump(anno_file, f)
@@ -257,7 +258,7 @@ class AnnotationManager(object):
                     if 'status' in location.attrs.keys():
                         self.status = location.attrs['status']
                     # load attritubutes and labels
-                    self.labels = self._load_labels(location)
+                    self.labelMgr.parse_labels(location, mode='hdf5') 
                     # load annotations
                     if 'annotations' in location.keys():
                         for timestamp in location['annotations']:
@@ -273,7 +274,7 @@ class AnnotationManager(object):
                     # load status
                     self.status = anno_file['status']
                     # load property and label list
-                    self.labels = self._load_labels(anno_file['labels'])
+                    self.labelMgr.parse_labels(anno_file['labels']) 
                     # load annotations
                     for timestamp, anno in anno_file['annotations'].items():
                         annotation = self._load_annotation(anno)
@@ -281,24 +282,6 @@ class AnnotationManager(object):
                             self.add_annotation(annotation)
 
             print('Annotation loaded:', annotation_path)
-
-    ## hdf5 compatible
-    def _load_labels(self, anno_file, mode='json'):
-        
-        
-        labels = {}
-        if 'attributes' not in anno_file.keys():
-            print("Propertys not found !")
-            return labels
-        attributes = anno_file['attributes']
-        for attr_name in attributes.keys():
-            labels[attr_name] = {}
-            for label_name in attributes[attr_name].keys():
-                color = [attributes[attr_name][label_name][0],attributes[attr_name][label_name][1],
-                        attributes[attr_name][label_name][2]]
-                labels[attr_name][label_name] = color
-        return labels
-
 
     def _load_annotation(self, anno, mode='json'):
 
@@ -322,15 +305,15 @@ class AnnotationManager(object):
         anno_type = anno['type']
         timestamp = anno['timestamp']
         if anno_type == POLYGON:
-            return PolygonAnnotation(timestamp, anno)
+            return PolygonAnnotation(timestamp, anno, self.labelMgr)
         elif anno_type == BBX:
-            return BBXAnnotation(timestamp, anno)
+            return BBXAnnotation(timestamp, anno, self.labelMgr)
         elif anno_type == ELLIPSE:
-            return EllipseAnnotation(timestamp, anno)
+            return EllipseAnnotation(timestamp, anno, self.labelMgr)
         elif anno_type == DOT:
-            return DotAnnotation(timestamp, anno)
+            return DotAnnotation(timestamp, anno, self.labelMgr)
         elif anno_type == CURVE:
-            return CurveAnnotation(timestamp, anno)
+            return CurveAnnotation(timestamp, anno, self.labelMgr)
         else:
             print("Unknown annotation type")
             return None

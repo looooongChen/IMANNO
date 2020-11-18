@@ -5,77 +5,8 @@ import numpy as np
 import math
 
 from abc import abstractmethod
-from .enumDef import *
+from enumDef import *
 
-#######################
-#### label classes ####
-#######################
-
-class Property(object):
-
-    def __init__(self, name, label_list=None):
-        """
-        Args:
-            name: name of the attribute e.g. Color
-            label_list: a list of label names e.g. ['red', 'blue' ...]
-        """
-        self.name = name
-        self.labels = {} # label_name - label_object
-        if label_list is not None:
-            for l in label_list:
-                self.add_label(l)
-
-    def add_label(self, label_name, label_color=None):
-        if label_name not in self.labels.keys():
-            self.labels[label_name] = Label(self, label_name, label_color)
-
-    def remove_label(self, label):
-        label_name = label.label_name if isinstance(label, Label) else label
-        if label_name in self.labels.keys():
-            del self.labels[label.label_name]
-    
-    def get_label(self, label_name):
-        if label_name in self.labels.keys():
-            return self.labels[label_name]
-        else:
-            return None
-    
-    def rename(self, name):
-        if isinstance(name, str):
-            self.name = name
-            for l in self.labels:
-                l.attr_name = name
-
-    def save(self, location):
-        """
-        Args:
-            location: a hdf5 root
-        """
-        attr_group = location.require_group('attributes')
-        if self.name in attr_group.keys():
-            del attr_group[self.name]
-        label_group = attr_group.create_group(self.name)
-        for label_name, label_obj in self.labels.items():
-            label_group.create_dataset(label_name, shape=(3,), dtype='uint8')
-            label_group[label_name][0] = label_obj.color[0]
-            label_group[label_name][1] = label_obj.color[1]
-            label_group[label_name][2] = label_obj.color[2]
-
-
-class Label(object):
-
-    def __init__(self, prop, label, color=None):
-        self.prop = prop
-        self.label = label
-        self.color = color
-
-    def set_color(self, r, g, b):
-        self.color = [r,g,b]
-
-    def rename(self, label_name):
-        if isinstance(label_name, str) and label_name not in self.attr.labels.keys():
-            self.attr.labels[label_name] = self.attr.labels.pop(self.label_name)
-            self.label_name = label_name
 
 ############################
 #### annotation classes ####
@@ -88,30 +19,43 @@ class Annotation(object):
     in addition, the method giving the graph object is also implemented in the Annotation class
     """
 
-    def __init__(self, timestamp, obj):
+    def __init__(self, timestamp, obj, labelMgr):
         '''
         Args:
-            timestamp: timestamp timestamp = datim.today().isoformat('@')
+            timestamp: datim.today().isoformat('@')
             obj: dataObject or graphObject
+            labelMgr: labelManager.LableManager object
         '''
         self.timestamp = timestamp
+        self.labelMgr = labelMgr
+        self.labels = {}
         if isinstance(obj, dict):
             self.dataObject = obj
-            self.set_graphObject(obj)
+            self.from_dataObject(obj)
+            self.parse_labels()
         elif isinstance(obj, QGraphicsItem):
             self.graphObject = obj
-            self.set_dataObject(obj)
+            self.from_graphObject(obj)
 
-    def set_label(self, prop, label):
-        self.dataObject['labels'][prop] = label
+    def parse_labels(self):
+        if 'labels' in self.dataObject.keys()
+            for prop_name, label_name in self.dataObject['labels'].items():
+                self.labelMgr.assign(self, prop_name, label_name)
+            self.dataObject['labels'] = {}
+    
+    def render_save(self):
+        save_dict = self.dataObject.copy()
+        save_dict['labels'] = {label.property.name: label.name for label in self.labels}
+        return save_dict
 
-    def remove_label(self, prop, label=None):
-        if prop in self.dataObject['labels'].keys():
-            if label is None or self.dataObject['labels'][prop] == label:
-                del self.dataObject['labels'][prop]
+    def assign_label(self, prop_name, label_name):
+        self.labelMgr.assign(self, prop_name, label_name)
+
+    def withdraw_label(self, prop_name, label_name):
+        self.labelMgr.withdraw(self, prop_name, label_name)
 
     @abstractmethod
-    def set_graphObject(self, dataObject):
+    def from_dataObject(self, dataObject):
         """
         an abstract method to set and return the self.graphObject from the data object
         Return: self.graphObject
@@ -119,7 +63,7 @@ class Annotation(object):
         pass
 
     @abstractmethod
-    def set_dataObject(self, graphObject):
+    def from_graphObject(self, graphObject):
         """
         an abstract method to set and return the self.dataObject from the graph object,
         Return: self.dataObject
@@ -142,7 +86,7 @@ class Annotation(object):
 
 class DotAnnotation(Annotation):
 
-    def __init__(self, timestamp, dot):
+    def __init__(self, timestamp, dot, labelMgr):
         """
         Args:
             timestamp: timestamp
@@ -152,15 +96,17 @@ class DotAnnotation(Annotation):
                   'coords': [x, y]}
                 or QGraphicsPolygonItem  
         """
-        super().__init__(timestamp, dot)
         self.radius = 5
+        super().__init__(timestamp, dot, labelMgr)
 
     def _star(self, center, R):
-        star = QPointF(center[0], center[1]) + QPolygonF([QPointF(0,R), QPointF(R/3,R/3), QPointF(R,0), QPointF(R/3,-R/3), QPointF(0,-R), QPointF(-R/3,-R/3), QPointF(-R,0), QPointF(-R/3,R/3)])
+        star = [QPointF(0,R), QPointF(R/3,R/3), QPointF(R,0), QPointF(R/3,-R/3), QPointF(0,-R), QPointF(-R/3,-R/3), QPointF(-R,0), QPointF(-R/3,R/3)]
+        star = [pt + QPointF(center[0], center[1]) for pt in star]
+        star = QPolygonF(star)
         star = QGraphicsPolygonItem(star)
         return star
 
-    def set_graphObject(self, obj):
+    def from_dataObject(self, obj):
         self.graphObject = self._star(obj['coords'], self.radius)
         return self.graphObject
 
@@ -169,7 +115,7 @@ class DotAnnotation(Annotation):
         self.graphObject = self._star(self.dataObject['coords'], self.radius)
         return self.graphObject
 
-    def set_dataObject(self, obj):
+    def from_graphObject(self, obj):
         self.dataObject = {'timestamp': self.timestamp,  
                            'type': DOT,  
                            'labels': {},  
@@ -187,7 +133,7 @@ class DotAnnotation(Annotation):
 
 class CurveAnnotation(Annotation):
 
-    def __init__(self, timestamp, curve):
+    def __init__(self, timestamp, curve, labelMgr):
         """
         Args:
             timestamp: timestamp
@@ -198,15 +144,15 @@ class CurveAnnotation(Annotation):
                     'bbx': [x, y, w, h]}
                   or QGraphicsPathItem
         """
-        super().__init__(timestamp, curve)
+        super().__init__(timestamp, curve, labelMgr)
     
-    def set_graphObject(self, obj):
+    def from_dataObject(self, obj):
         curve = QPainterPath()
         curve.addPolygon(QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']]))
         self.graphObject = QGraphicsPathItem(curve)
         return self.graphObject
 
-    def set_dataObject(self, obj):
+    def from_graphObject(self, obj):
         self.dataObject = {'timestamp': self.timestamp,  
                            'type': CURVE,  
                            'labels': {},  
@@ -234,7 +180,7 @@ class CurveAnnotation(Annotation):
 
 class PolygonAnnotation(Annotation):
 
-    def __init__(self, timestamp, polygon):
+    def __init__(self, timestamp, polygon, labelMgr):
         """
         Args:
             timestamp: timestamp
@@ -245,15 +191,15 @@ class PolygonAnnotation(Annotation):
                       'bbx': [x, y, w, h]}
                     or QGraphicsPathItem
         """
-        super().__init__(timestamp, polygon)
+        super().__init__(timestamp, polygon, labelMgr)
 
 
-    def set_graphObject(self, obj):
+    def from_dataObject(self, obj):
         polygon = QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']])
         self.graphObject = QGraphicsPolygonItem(polygon)
         return self.graphObject
 
-    def set_dataObject(self, obj):
+    def from_graphObject(self, obj):
         self.dataObject = {'timestamp': self.timestamp,  
                            'type': POLYGON,  
                            'labels': {},  
@@ -281,7 +227,7 @@ class PolygonAnnotation(Annotation):
 
 class BBXAnnotation(Annotation):
 
-    def __init__(self, timestamp, bbx):
+    def __init__(self, timestamp, bbx, labelMgr):
         """
         Args:
             timestamp: timestamp
@@ -291,16 +237,16 @@ class BBXAnnotation(Annotation):
                   'bbx': [x, y, w, h]}
                 or QGraphicsRectItem
         """
-        super().__init__(timestamp, bbx)
+        super().__init__(timestamp, bbx, labelMgr)
 
-    def set_graphObject(self, obj):
+    def from_dataObject(self, obj):
         bbx = QRectF()
         bbx.setTopLeft(QPointF(obj['bbx'][0], obj['bbx'][1]))
         bbx.setSize(QSizeF(obj['bbx'][2], obj['bbx'][3]))
         self.graphObject = QGraphicsRectItem(bbx)
         return self.graphObject
 
-    def set_dataObject(self, obj):
+    def from_graphObject(self, obj):
         self.dataObject = {'timestamp': self.timestamp,  
                            'type': BBX,  
                            'labels': {},  
@@ -320,7 +266,7 @@ class BBXAnnotation(Annotation):
 
 class EllipseAnnotation(Annotation):
 
-    def __init__(self, timestamp, ellipse):
+    def __init__(self, timestamp, ellipse, labelMgr):
         """
         Args:
             timestamp: timestamp
@@ -332,9 +278,9 @@ class EllipseAnnotation(Annotation):
                       'axis': [axis_major, axis_minor],
                       'bbx': [x, y, w, h]}
         """
-        super().__init__(timestamp, ellipse)
+        super().__init__(timestamp, ellipse, labelMgr)
 
-    def set_graphObject(self, obj):
+    def from_dataObject(self, obj):
         bbx = QRectF()
         # add ellipse
         axis_major, axis_minor = obj['axis'][0], obj['axis'][1]
@@ -353,7 +299,7 @@ class EllipseAnnotation(Annotation):
         return self.graphObject
 
 
-    def set_dataObject(self, obj):
+    def from_graphObject(self, obj):
         self.dataObject = {'timestamp': self.timestamp,  
                            'type': ELLIPSE,  
                            'labels': {},  
