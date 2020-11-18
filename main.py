@@ -14,7 +14,7 @@ from components.image import Image
 from components.project import Project
 from components.labelManager import LabelManager
 from components.annotationManager import AnnotationManager
-from components.canvas import Canvas
+from components.canvas import Canvas, View
 from components.labelDisp import LabelDispDock
 from components.fileList import FileListDock, ImageTreeItem
 from components.messages import open_message
@@ -63,13 +63,14 @@ class MainWindow(QMainWindow):
         # setup annotation manager
         self.labelMgr = LabelManager(self.config)
         self.annotationMgr = AnnotationManager(self.config, self.labelMgr)
+        # setup the canvas and view
+        self.view = View(self.config)
+        self.canvas= Canvas(self.config, self.image, self.view, self.annotationMgr)
+        self.setCentralWidget(self.view)
         # setup project
         self.project = Project(self.annotationMgr)
-        # setup the canvas
-        self.canvas= Canvas(self.config, self.image, self.annotationMgr, self)
-        self.annotationMgr.set_canvas(self.canvas)
         # label display docker
-        self.labelDisp = LabelDispDock(self.config, self.annotationMgr, self.canvas, self)
+        self.labelDisp = LabelDispDock(self.config, self.labelMgr, self.canvas, self)
         self.addDockWidget(Qt.RightDockWidgetArea, self.labelDisp)
         # file list docker
         self.fileList = FileListDock(self.config, self.project, self.annotationMgr, self)

@@ -6,17 +6,17 @@ import h5py
 import json
 import os
 
+from .base import Table
 from .labelManager import LabelManager
 from .annotations import *
 from .canvas import Canvas
 
-class AnnotationManager(object):
+class AnnotationManager(Table):
     def __init__(self, config, labelMgr, canvas=None):
 
         self.config = config
         self.status = UNFINISHED
         self.labelMgr = labelMgr
-        self.annotations = {} # timestamp - Annotation object
 
         self.canvas = canvas
 
@@ -68,7 +68,7 @@ class AnnotationManager(object):
     def new_annotation(self, type, dataObject, skip_dlg=False):
 
         timestamp = datim.today().isoformat('@')
-        while timestamp in self.annotations.keys():
+        while timestamp in self.keys():
             timestamp = datim.today().isoformat('@')
 
         if type == POLYGON:
@@ -88,7 +88,7 @@ class AnnotationManager(object):
         self.saved = False
     
     def add_annotation(self, annotation, display_channel=None):
-        self.annotations[annotation.timestamp] = annotation
+        self[annotation.timestamp] = annotation
         if self.canvas is not None:
             self.canvas.add_graphItem(annotation, display_channel)
 
@@ -111,9 +111,9 @@ class AnnotationManager(object):
     ############################
 
     def get_annotation_by_graphItem(self, graphItem):
-        for timestamp, item in self.annotations.items():
+        for timestamp, item in self.items():
             if graphItem is item.graphObject:
-                return self.annotations[timestamp]
+                return self[timestamp]
         return None
 
     def get_selected_annotations(self):
@@ -135,7 +135,7 @@ class AnnotationManager(object):
     def delete_annotation_by_graphItem(self, graphItem):
         timestamp = [timestamp for timestamp, item in self.annotations.items() if graphItem is item.graphObject]
         if len(timestamp) > 0:
-            del self.annotations[timestamp[0]]
+            del self[timestamp[0]]
         if self.canvas is not None:
             self.canvas.removeItem(graphItem)
         self.saved = False
@@ -182,8 +182,8 @@ class AnnotationManager(object):
         self.saved = False
 
     def _remove_label_from_all_annotations(self, label_obj):
-        for timestamp in self.annotations.keys():
-            self.annotations[timestamp].remove_label(label_obj)
+        for timestamp in self.keys():
+            self[timestamp].remove_label(label_obj)
 
     ############################
     #### methods for rename ####
@@ -222,7 +222,7 @@ class AnnotationManager(object):
         anno_file = {'status': self.status,
                      'labels': self.labelMgr.render_save(),
                      'annotations': {}}
-        for timestamp, anno in self.annotations.items():
+        for timestamp, anno in self.items():
             anno_file['annotations'][timestamp] = anno.render_save()
 
         with open(filename, 'w') as f:
@@ -231,8 +231,8 @@ class AnnotationManager(object):
         self.saved = True
 
     def close(self):
-        self.labels = {} 
-        self.annotations = {}
+        self.clear()
+        self.labelMgr.clear()
         self.saved = True
         self.annotation_path = None
 
@@ -248,7 +248,7 @@ class AnnotationManager(object):
 
             self.saved = True
             self.labels.clear()
-            self.annotations.clear()
+            self.clear()
 
             ## hdf5 compatible
             ext = os.path.splitext(annotation_path)[-1]

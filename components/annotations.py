@@ -5,7 +5,7 @@ import numpy as np
 import math
 
 from abc import abstractmethod
-from enumDef import *
+from .enumDef import *
 
 
 ############################
@@ -38,7 +38,7 @@ class Annotation(object):
             self.from_graphObject(obj)
 
     def parse_labels(self):
-        if 'labels' in self.dataObject.keys()
+        if 'labels' in self.dataObject.keys():
             for prop_name, label_name in self.dataObject['labels'].items():
                 self.labelMgr.assign(self, prop_name, label_name)
             self.dataObject['labels'] = {}

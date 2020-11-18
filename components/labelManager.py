@@ -1,34 +1,6 @@
-class Lookup(object):
+from .base import Table
 
-    def __init__(self):
-        self.lookup = {}
-
-    def __setitem__(self, key, item):
-        self.lookup[key] = item
-
-    def __getitem__(self, key):
-        return self.lookup[key]
-    
-    def __delitem__(self, key):
-        del self.lookup[key]
-
-    def keys(self):
-        return self.lookup.keys()
-    
-    def items(self):
-        return self.lookup.items()
-    
-    def clear(self):
-        self.lookup.clear()
-
-    def __iter__(self):
-        return iter(self.lookup)
-    
-    def __str__(self):
-        return self.lookup.__str__()
-
-
-class LabelManager(Lookup):
+class LabelManager(Table):
 
     def __init__(self, config, label_dict=None):
         self.config = config
@@ -141,13 +113,13 @@ class LabelManager(Lookup):
         '''
         all assigned lables will also be cleared
         '''
-        if _, prop in self.items():
+        for _, prop in self.items():
             prop.remove_all()
         super().clear()
 
 
 
-class Property(Lookup):
+class Property(Table):
 
     def __init__(self, labelMgr, prop_name):
         """
@@ -190,7 +162,7 @@ class Property(Lookup):
         for _, label in self.items():
             label.withdraw_all()
     
-class Label(Lookup):
+class Label(Table):
 
     def __init__(self, prop, label_name, label_color=None):
         '''
@@ -237,7 +209,7 @@ if __name__ == "__main__":
     import pprint
     DD = {'color': {'red': [255,0,0], 'blue': [0,255,0]}, 'shape': {'round': [12,35,123]}}
     pprint.pprint(DD)
-    labelMgr = LabelManager()
+    labelMgr = LabelManager({})
     labelMgr.parse_labels(DD)
     print('==== regenerated ====')
     pprint.pprint(labelMgr.render_save())

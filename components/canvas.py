@@ -17,20 +17,20 @@ class Canvas(QGraphicsScene):
     signalAnnotationSelected = QtCore.pyqtSignal(Annotation)
     signalAnnotationReleased = QtCore.pyqtSignal()
 
-    def __init__(self, config, image, annotationMgr, parent=None):
+    def __init__(self, config, image, view, annotationMgr, parent=None):
         
         super().__init__(parent=parent)
         # class members
         self.config = config
-        self.image = None
+        self.image = image
+        self.view = view
         self.annotationMgr = annotationMgr
-        self.parent = parent
-        self.view = View(parent)
         self.bgPixmap = self.addPixmap(QPixmap.fromImage(QImage('icons/startscreen.png')))
         self.livewire = Livewire()
         # setup 
         self.set_image(image)
         self.set_view(self.view)
+        self.annotationMgr.set_canvas(self)
         # run-time stack
         self.selectedItems = []
         # run-time status
@@ -54,8 +54,6 @@ class Canvas(QGraphicsScene):
             self.view = view
             self.view.setScene(self)
             self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-            if self.parent is not None:
-                self.parent.setCentralWidget(view)
             self.view.show()
 
     def screenshot(self):
@@ -229,17 +227,17 @@ class Canvas(QGraphicsScene):
                 else:
                     self.currentCommand = BBXPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            elif self.tool == OVAL:
+            elif self.tool == ELLIPSE:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
                     self.currentCommand = OvalPainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
-            elif self.tool == POINT:
+            elif self.tool == DOT:
                 self.currentCommand = PointPainter(self, self.annotationMgr, self.clickPos, self.config['DotAnnotationRadius'])
                 self.currentCommand.finish()
-            elif self.tool == LINE:
+            elif self.tool == CURVE:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
@@ -266,11 +264,11 @@ class Canvas(QGraphicsScene):
             self.currentCommand.mouseMoveEvent(event)
         elif self.tool == LIVEWIRE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        elif self.tool == LINE and self.drawing:
+        elif self.tool == CURVE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
         elif self.tool == BBX and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
-        elif self.tool == OVAL and self.drawing:
+        elif self.tool == ELLIPSE and self.drawing:
             self.currentCommand.mouseMoveEvent(event)
 
     def wheelEvent(self, event):
@@ -282,20 +280,21 @@ class Canvas(QGraphicsScene):
         elif event.key() == Qt.Key_Delete:
             self.deleteItem()
         elif event.key() == Qt.Key_Z:
-            if self.tool == OVAL and self.drawing:
+            if self.tool == ELLIPSE and self.drawing:
                 self.currentCommand.shrink()
-            elif self.tool == POINT:
+            elif self.tool == DOT:
                 self.currentCommand.shrink()
         elif event.key() == Qt.Key_A:
-            if self.tool == OVAL and self.drawing:
+            if self.tool == ELLIPSE and self.drawing:
                 self.currentCommand.expand()
-            elif self.tool == POINT:
+            elif self.tool == DOT:
                 self.currentCommand.expand()
 
 
 class View(QGraphicsView):
-    def __init__(self, parent=None):
+    def __init__(self, config, parent=None):
         super().__init__(parent=parent)
+        self.config = config
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
