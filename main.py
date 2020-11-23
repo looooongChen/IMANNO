@@ -302,6 +302,7 @@ class MainWindow(QMainWindow):
             self.fileList.init_list(filenames, status, mode='file')
             if len(filenames) > 0:
                 self.load(filenames[0])
+                self.config['fileDirectory'] = os.path.dirname(filenames[0])
 
     def open_directory(self):
         if self.project.is_open():
@@ -321,6 +322,7 @@ class MainWindow(QMainWindow):
                 status = [os.path.splitext(f)[0] + ANNOTATION_EXT for f in files]
                 status = [self.annotationMgr.get_status(s) for s in status] 
                 self.fileList.init_list(files, status, mode='file')
+                self.config['fileDirectory'] = folder
 
     #### project related methods
 
@@ -506,11 +508,13 @@ class MainWindow(QMainWindow):
         return status
     
     def hideMask(self):
-        if self.config.disp_channel != HIDE_ALL:
-            self.config.pre_disp_channel = self.config.disp_channel
+        if self.config.disp != HIDE_ALL:
+            self.config.pre_disp = self.config.disp
+            self.config.disp = HIDE_ALL
             self.labelDisp.set_channel(HIDE_ALL)
         else:
-            self.labelDisp.set_channel(self.config.pre_disp_channel)
+            self.config.disp = self.config.pre_disp
+            self.labelDisp.set_channel(self.config.pre_disp)
 
     #### close
 

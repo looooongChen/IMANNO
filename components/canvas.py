@@ -10,7 +10,7 @@ from .image import Image
 from .livewire import Livewire
 from .commands import *
 from .enumDef import *
-from .annotations import Annotation
+from .annotations import *
 
 class Canvas(QGraphicsScene):
 
@@ -74,6 +74,7 @@ class Canvas(QGraphicsScene):
         for item in self.selectedItems:
             anno = self.annotationMgr.get_annotation_by_graphItem(item)
             label.assign(anno)
+            anno.sync_disp(self.config)
         if len(self.selectedItems) > 0:
             anno = self.annotationMgr.get_annotation_by_graphItem(self.selectedItems[-1])
             self.signalAnnotationSelected.emit(anno)
@@ -118,22 +119,8 @@ class Canvas(QGraphicsScene):
                 self.livewire.sync_image()
 
     def sync_disp(self):
-        channel = self.config.disp_channel
-        if channel == SHOW_ALL:
-            pen, brush = LINE_PEN['normal'], AREA_BRUSH['normal']
-        elif channel == HIDE_ALL:
-            pen, brush = LINE_PEN['hide'], AREA_BRUSH['hide']
-        else:
-            pen, brush = LINE_PEN['shadow'], AREA_BRUSH['shadow']
-
         for _, anno in self.annotationMgr.items():
-            if channel in anno.labels.keys():
-                label = anno.labels[channel]
-                anno.graphObject.setPen(label.linePen())
-                anno.graphObject.setBrush(label.areaBrush())
-            else:
-                anno.graphObject.setPen(pen)
-                anno.graphObject.setBrush(brush)
+            anno.sync_disp(self.config)
         self.highlight_items(self.selectedItems)
     
     def set_tool(self, tool, paras=None):

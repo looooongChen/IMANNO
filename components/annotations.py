@@ -1,5 +1,5 @@
 from PyQt5.QtCore import Qt, QRectF, QPointF, QSizeF
-from PyQt5.QtGui import QPolygonF, QColor, QTransform, QPainter, QPainterPath  
+from PyQt5.QtGui import QPolygonF, QColor, QTransform, QPainter, QPainterPath, QPen, QBrush
 from PyQt5.QtWidgets import QGraphicsPolygonItem, QGraphicsEllipseItem, QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem
 import numpy as np
 import math
@@ -30,8 +30,8 @@ class Annotation(object):
         self.timestamp = timestamp
         self.labelMgr = labelMgr
         self.labels = {}
-        self.dataObject = self.get_dataObject(obj)
-        self.graphObject = self.get_graphObject(self.dataObject)
+        self.dataObject = self._dataObject(obj)
+        self.graphObject = self._graphObject(self.dataObject)
         self.parse_labels()
 
     def parse_labels(self):
@@ -61,9 +61,25 @@ class Annotation(object):
                 return True if self.labels[tag.property] is tag else False
         else:
             return False
-            
+
+    def sync_disp(self, config):
+        channel = config.disp
+        if channel == SHOW_ALL:
+            pen, brush = LINE_PEN['normal'], AREA_BRUSH['normal']
+        elif channel == HIDE_ALL:
+            pen, brush = LINE_PEN['hide'], AREA_BRUSH['hide']
+        elif channel in self.labels.keys():
+            color = self.labels[channel].color
+            pen = QPen(QColor(color[0], color[1], color[2], PEN_ALPHA), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            brush = QBrush(QColor(color[0], color[1], color[2], BRUSH_ALPHA))
+        else:
+            pen, brush = LINE_PEN['shadow'], AREA_BRUSH['shadow']
+        self.graphObject.setPen(pen)
+        self.graphObject.setBrush(brush)
+        return self.graphObject
+        
     @abstractmethod
-    def get_dataObject(self, dataObject):
+    def _dataObject(self, dataObject):
         """
         an abstract method to get graphObject from a dataObject
         Return: graphObject
@@ -71,7 +87,7 @@ class Annotation(object):
         pass
 
     @abstractmethod
-    def get_graphObject(self, graphObject):
+    def _graphObject(self, graphObject):
         """
         an abstract method to dataObject from the graphObject/dataObject,
         Return: self.dataObject
@@ -104,25 +120,32 @@ class DotAnnotation(Annotation):
                   'coords': [x, y]}
                 or QGraphicsPolygonItem  
         """
-        self.radius = 10
+        self.radius = 1
         super().__init__(timestamp, dot, labelMgr)
 
     def _star(self, center, R):
-        star = [QPointF(0,R), QPointF(R/5,R/5), QPointF(R,0), QPointF(R/5,-R/5), QPointF(0,-R), QPointF(-R/5,-R/5), QPointF(-R,0), QPointF(-R/5,R/5)]
+        star = [QPointF(0,R), QPointF(R/6,R/6), QPointF(R,0), QPointF(R/6,-R/6), QPointF(0,-R), QPointF(-R/6,-R/6), QPointF(-R,0), QPointF(-R/6,R/6)]
         star = [pt + QPointF(center[0], center[1]) for pt in star]
         star = QPolygonF(star)
         star = QGraphicsPolygonItem(star)
         return star
 
-    def get_graphObject(self, obj):
+    def _graphObject(self, obj):
         return self._star(obj['coords'], self.radius)
 
-    def adjust_graphObject(self, radius):
-        self.radius = radius
-        self.graphObject = self._star(self.dataObject['coords'], self.radius)
+    def sync_disp(self, config):
+        super().sync_disp(config)
+        self.graphObject.resetTransform()
+        s = config['DotAnnotationRadius']/self.radius
+        t1, t2 = self.dataObject['coords'][0], self.dataObject['coords'][1]
+        t = QTransform(s,0,0,0,s,0,t1-s*t1, t2-s*t2, 1)
+        self.graphObject.setTransform(t)
+        brush = QBrush(self.graphObject.pen().color())
+        self.graphObject.setBrush(brush)
+
         return self.graphObject
 
-    def get_dataObject(self, obj):
+    def _dataObject(self, obj):
         if isinstance(obj, QGraphicsItem):
             dataObject = {'timestamp': self.timestamp,  
                           'type': DOT,  
@@ -159,13 +182,21 @@ class CurveAnnotation(Annotation):
                   or QGraphicsPathItem
         """
         super().__init__(timestamp, curve, labelMgr)
+
+    def sync_disp(self, config):
+        super().sync_disp(config)
+        pen = self.graphObject.pen()
+        pen.setWidth(config['CurveAnnotationWidth'])
+        self.graphObject.setPen(pen)
+        self.graphObject.setBrush(AREA_BRUSH['hide'])
+        return self.graphObject
     
-    def get_graphObject(self, obj):
+    def _graphObject(self, obj):
         curve = QPainterPath()
         curve.addPolygon(QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']]))
         return QGraphicsPathItem(curve)
 
-    def get_dataObject(self, obj):
+    def _dataObject(self, obj):
         if isinstance(obj, QGraphicsItem):
             dataObject = {'timestamp': self.timestamp,  
                           'type': CURVE,  
@@ -216,11 +247,11 @@ class PolygonAnnotation(Annotation):
         super().__init__(timestamp, polygon, labelMgr)
 
 
-    def get_graphObject(self, obj):
+    def _graphObject(self, obj):
         polygon = QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']])
         return QGraphicsPolygonItem(polygon)
 
-    def get_dataObject(self, obj):
+    def _dataObject(self, obj):
         if isinstance(obj, QGraphicsItem):
             dataObject = {'timestamp': self.timestamp,  
                           'type': POLYGON,  
@@ -269,13 +300,13 @@ class BBXAnnotation(Annotation):
         """
         super().__init__(timestamp, bbx, labelMgr)
 
-    def get_graphObject(self, obj):
+    def _graphObject(self, obj):
         bbx = QRectF()
         bbx.setTopLeft(QPointF(obj['bbx'][0], obj['bbx'][1]))
         bbx.setSize(QSizeF(obj['bbx'][2], obj['bbx'][3]))
         return QGraphicsRectItem(bbx)
 
-    def get_dataObject(self, obj):
+    def _dataObject(self, obj):
         if isinstance(obj, QGraphicsItem):
             dataObject = {'timestamp': self.timestamp,  
                           'type': BBX,  
@@ -316,7 +347,7 @@ class EllipseAnnotation(Annotation):
         """
         super().__init__(timestamp, ellipse, labelMgr)
 
-    def get_graphObject(self, obj):
+    def _graphObject(self, obj):
         bbx = QRectF()
         # add ellipse
         axis_major, axis_minor = obj['axis'][0], obj['axis'][1]
@@ -332,7 +363,7 @@ class EllipseAnnotation(Annotation):
         return graphObject
 
 
-    def get_dataObject(self, obj):
+    def _dataObject(self, obj):
         if isinstance(obj, QGraphicsItem):
             dataObject = {'timestamp': self.timestamp,  
                           'type': ELLIPSE,  

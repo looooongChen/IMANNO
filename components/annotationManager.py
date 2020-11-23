@@ -87,7 +87,7 @@ class AnnotationManager(Table):
             anno = EllipseAnnotation(timestamp, dataObject, self.labelMgr)
         elif anno_type == DOT:
             anno = DotAnnotation(timestamp, dataObject, self.labelMgr)
-            anno.adjust_graphObject(self.config['DotAnnotationRadius'])
+            # anno.adjust_graphObject(self.config['DotAnnotationRadius'])
         elif anno_type == CURVE:
             anno = CurveAnnotation(timestamp, dataObject, self.labelMgr)
         else:
@@ -102,6 +102,7 @@ class AnnotationManager(Table):
         self.index_graphItem[anno.graphObject] = anno
         if self.canvas is not None and graphItem:
             self.canvas.add_item(anno)
+            anno.sync_disp(self.config)
     
     def remove_annotation(self, anno):
         if anno.timestamp in self.keys():
@@ -228,7 +229,7 @@ class AnnotationManager(Table):
             return EllipseAnnotation(timestamp, anno, self.labelMgr)
         elif anno_type == DOT:
             anno = DotAnnotation(timestamp, anno, self.labelMgr)
-            anno.adjust_graphObject(self.config['DotAnnotationRadius'])
+            # anno.adjust_graphObject(self.config['DotAnnotationRadius'])
             return anno
         elif anno_type == CURVE:
             return CurveAnnotation(timestamp, anno, self.labelMgr)

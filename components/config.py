@@ -7,7 +7,7 @@ save_config = ['fileDirectory', 'defaultLabelListDir', 'DotAnnotationRadius', 'C
 class Config(dict):
 
     def __init__(self, path):
-        self['fileDirectory'] = './demo_images'
+        self['fileDirectory'] = './'
         self['defaultLabelListDir'] = './config'
         self['DotAnnotationRadius'] = 10
         self['CurveAnnotationWidth'] = 2
@@ -17,8 +17,8 @@ class Config(dict):
         self['minCurveLength'] = 5
 
         self.saved = True
-        self.disp_channel = SHOW_ALL
-        self.pre_disp_channel = SHOW_ALL
+        self.disp = SHOW_ALL
+        self.pre_disp = SHOW_ALL
         
         self.path = path
         if not os.path.exists(os.path.dirname(path)):

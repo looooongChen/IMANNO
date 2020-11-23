@@ -40,8 +40,9 @@ https://www.youtube.com/watch?v=1drqp9zhjbY
 - Polygons: free drawing
 - Livewire/Intelligent Scissor: draw by clicking points, lines between points are estimated by the software
 - Ellipses:
-- Bounding Box
-- Dot
+- Bounding Box:
+- Dot:
+- Curve
 
 ### Labeling
 
@@ -186,14 +187,3 @@ options:
 ## TODOs:
 
 - config menu
-- screen shot
-
-## Export executable (windows10 tested)
-
-- install pyinstaller
-- run command: 
-```
-pyinstaller main.py
-```
-- copy ./config ./icons ./uis to the directory of your executable (which contains main.exe)
-- copy platform directory to the directory of your executable. You'll find the platform directory at a location like c:\Users\<username>\envs\<environmentname>\Library\plugins\platforms

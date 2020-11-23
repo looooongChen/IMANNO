@@ -87,6 +87,7 @@ class LabelDispDock(QDockWidget):
                 label_list = json.load(f)
                 self.labelMgr.parse_labels(label_list, increment=True)
         self.sync_labelDisp()
+        self.sync_dispChannel()
 
     def load_default_labels(self):
         ## hdf5 compatible
@@ -331,7 +332,7 @@ class LabelDispDock(QDockWidget):
         '''
         channel = channel.name if isinstance(channel, Property) else channel
         if channel in self.labelMgr.keys():
-            ind = self.channel.findText(channel)
+            ind = self.channel.findText("property: " + channel)
             self.channel.setCurrentIndex(ind)
         elif channel == HIDE_ALL:
             self.channel.setCurrentIndex(1)
@@ -342,11 +343,11 @@ class LabelDispDock(QDockWidget):
         name = self.channel.itemData(ind, Qt.UserRole)
         
         if name in self.labelMgr.keys():
-            self.config.disp_channel = self.labelMgr[name]
+            self.config.disp = self.labelMgr[name]
         elif name == HIDE_ALL:
-            self.config.disp_channel = HIDE_ALL
+            self.config.disp = HIDE_ALL
         else:
-            self.config.disp_channel = SHOW_ALL
+            self.config.disp = SHOW_ALL
         self.signalDispChannelChanged.emit()
         
 

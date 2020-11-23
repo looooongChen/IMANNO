@@ -1,5 +1,4 @@
 from .base import Table
-from PyQt5.QtGui import QPen, QBrush, QColor
 from PyQt5.QtCore import Qt
 
 class LabelManager(Table):
@@ -210,12 +209,6 @@ class Label(Table):
         self.color = label_color
         self.property[label_name] = self
     
-    def linePen(self):
-        return QPen(QColor(self.color[0], self.color[1], self.color[2], 255), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-
-    def areaBrush(self):
-        return QBrush(QColor(self.color[0], self.color[1], self.color[2], 70))
-
     def rename(self, label_name, saved=False):
         if label_name not in self.property.keys():
             self.property[label_name] = self.property.pop(self.name)
