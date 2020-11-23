@@ -254,41 +254,47 @@ class FileListDock(QDockWidget):
         self.init_list(self.project.index_id.keys(), mode='project')
 
     def next_image(self):
-        item = self.fileList.currentItem()
-        if isinstance(item, ImageTreeItem):
-            parent = item.parent() 
-            if parent is None:
-                parent = self.fileList.invisibleRootItem()
-            count = parent.childCount()
-            if count > 1:
-                idx = parent.indexOfChild(item)
-                idx = idx + 1 if idx+1 < count else 0
-                item = parent.child(idx)
-        if isinstance(item, FolderTreeItem):
-            count = item.childCount()
-            if count >= 1:
-                item = item.child(0)
-        self.fileList.setCurrentItem(item)
-        self.signalImageChange.emit(item)
+        if self.fileList.topLevelItemCount() > 1:
+            item = self.fileList.currentItem()
+            if isinstance(item, ImageTreeItem):
+                parent = item.parent() 
+                if parent is None:
+                    parent = self.fileList.invisibleRootItem()
+                count = parent.childCount()
+                if count > 1:
+                    idx = parent.indexOfChild(item)
+                    idx = idx + 1 if idx+1 < count else 0
+                    item = parent.child(idx)
+            if isinstance(item, FolderTreeItem):
+                count = item.childCount()
+                if count >= 1:
+                    item = item.child(0)
+            if item is None:
+                item = topLevelItem(0)
+            self.fileList.setCurrentItem(item)
+            self.signalImageChange.emit(item)
 
     
     def previous_image(self):
-        item = self.fileList.currentItem()
-        if isinstance(item, ImageTreeItem):
-            parent = item.parent()
-            if parent is None:
-                parent = self.fileList.invisibleRootItem()
-            count = parent.childCount()
-            if count > 1:
-                idx = parent.indexOfChild(item)
-                idx = idx - 1 if idx-1 >= 0 else count-1
-                item = parent.child(idx)
-        if isinstance(item, FolderTreeItem):
-            count = item.childCount()
-            if count >= 1:
-                item = item.child(count-1)
-        self.fileList.setCurrentItem(item)
-        self.signalImageChange.emit(item)
+        if self.fileList.topLevelItemCount() > 1:
+            item = self.fileList.currentItem()
+            if isinstance(item, ImageTreeItem):
+                parent = item.parent()
+                if parent is None:
+                    parent = self.fileList.invisibleRootItem()
+                count = parent.childCount()
+                if count > 1:
+                    idx = parent.indexOfChild(item)
+                    idx = idx - 1 if idx-1 >= 0 else count-1
+                    item = parent.child(idx)
+            if isinstance(item, FolderTreeItem):
+                count = item.childCount()
+                if count >= 1:
+                    item = item.child(count-1)
+            if item is None:
+                item = topLevelItem(0)
+            self.fileList.setCurrentItem(item)
+            self.signalImageChange.emit(item)
 
     def double_clicked(self, item):
         if item.type() == FILE:
@@ -304,7 +310,7 @@ class FileListDock(QDockWidget):
                     status = self._change_mark(item, status)
                     self.project.set_status(idx, status)
                 else:
-                    path = item.path[:-3] + ANNOTATION_EXT
+                    path = os.path.splitext(item.path)[0] + ANNOTATION_EXT
                     status = self.annotationMgr.get_status(path)
                     status = self._change_mark(item, status)
                     self.annotationMgr.set_status(status, path)

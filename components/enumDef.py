@@ -1,10 +1,12 @@
+from PyQt5.QtGui import QPen, QBrush, QColor
+from PyQt5.QtCore import Qt
 
 UNFINISHED = 'unfinished'
 FINISHED = 'finished'
 CONFIRMED = 'confirmed'
 PROBLEM = 'problematic'
 
-ANNOTATION_EXT = 'hdf5'
+ANNOTATION_EXT = '.json'
 
 BROWSE = 'browse'
 POLYGON = 'polygon'
@@ -25,18 +27,22 @@ IMAGE_TYPES = ['*.png', '*.bmp', '*.tiff', '*.tif', '*.jpg', '*.jpeg']
 HIDE_ALL = 0
 SHOW_ALL = 1
 
-OP_MERGE = 0
-OP_OVERWRITE = 1
-OP_CANCEL = 2
-OP_IMPORT = 3
-OP_CLOSEANDOPEN = 4
+FOLDER = 10
+FILE = 11
+PROPERTY = 12
+LABEL = 13
 
-FOLDER = 0
-FILE = 1
-DELETE = 2
-RENAME = 3
-IMPORT = 4
-SEARCH = 5
+NEW = 20
+DELETE = 21
+RENAME = 22
+IMPORT = 23
+SEARCH = 24
+
+OP_MERGE = 30
+OP_OVERWRITE = 31
+OP_CANCEL = 32
+OP_IMPORT = 33
+OP_CLOSEANDOPEN = 34
 
 # from PyQt5.QtGui import QIcon
 import os
@@ -51,3 +57,19 @@ ICONS[DELETE] = os.path.join(icon_path, 'delete.png')
 ICONS[RENAME] = os.path.join(icon_path, 'rename.png')
 ICONS[IMPORT] = os.path.join(icon_path, 'import_image.png')
 ICONS[SEARCH] = os.path.join(icon_path, 'search.png')
+ICONS[NEW] = os.path.join(icon_path, 'new.png')
+ICONS[LABEL] = os.path.join(icon_path, 'label.png')
+
+LABEL_COLORS = {'red':'#ec524b',
+                'orange': '#ffa62b',
+                'yellow': '#fddb3a',
+                'green': '#7ea04d',
+                'cyan': '#7fdbda',
+                'blue': '#3282b8',
+                'violet': '#6a2c70',
+                'magenta': '#db75c5'}
+DRAWING_COLORS = {'normal': [QColor(0, 200, 0, 255), QColor(0, 200, 0, 70)],
+                  'hide': [QColor(0, 0, 0, 0), QColor(0, 0, 0, 0)],
+                  'shadow': [QColor(0, 0, 0, 255), QColor(0, 0, 0, 70)]}
+LINE_PEN = {k: QPen(c[0], 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin) for k, c in DRAWING_COLORS.items()}
+AREA_BRUSH = {k: QBrush(c[1]) for k, c in DRAWING_COLORS.items()}

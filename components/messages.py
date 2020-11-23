@@ -1,8 +1,35 @@
 
 
-from PyQt5.QtWidgets import QPushButton, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QPushButton, QMessageBox, QDialog
+from PyQt5.QtCore import Qt, QCoreApplication
+from PyQt5 import uic
 from .enumDef import *
+
+class ProgressDiag(QDialog):
+    def __init__(self, total, msg="", parent=None):
+        super().__init__(parent=parent)
+        self.ui = uic.loadUi('uis/importProgress.ui', baseinstance=self)
+        self.setWindowTitle(msg)
+        self.setModal(True)
+        self.setWindowFlags(Qt.Dialog | Qt.Desktop)
+        self.progressBar.setValue(0)
+        self.count = 0
+        self.total = total
+    
+    def keyPressEvent(self, e):
+        if e.key() != Qt.Key_Escape:
+            super().keyPressEvent(e)
+    
+    def new_item(self, msg):
+        self.count += 1
+        self.fileList.addItem(msg)
+        self.fileList.setCurrentRow(self.fileList.count()-1)
+        if int(self.count*100/self.total) - self.progressBar.value() >= 1:
+            self.progressBar.setValue(self.count*100/self.total)
+        if self.count == self.total:
+            self.progressBar.setValue(100)
+            self.close() 
+        QCoreApplication.processEvents()
 
 def open_message(title, msg):
     msgBox = QMessageBox()

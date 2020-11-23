@@ -3,23 +3,22 @@ __author__ = 'long, bug'
 from PyQt5.QtGui import QPen, QBrush, QPolygonF, QColor, QTransform, QPainterPath 
 from PyQt5.QtWidgets import QGraphicsPolygonItem
 from PyQt5.QtCore import Qt, QRectF, QLineF, QPointF, QSizeF
-# from PyQt4.QtWidgets import
-# from PyQt5.QtCore import *
-# import FESI as fesi
-import numpy as np
-import cv2
-
+from datetime import datetime as datim
 from abc import abstractmethod
+import numpy as np
 import copy
+import cv2
 
 from .enumDef import *
 
 class BaseToolClass(object):
 
-    def __init__(self, scene, annotationMgr):
+    def __init__(self, canvas, annotationMgr):
         super().__init__()
-        self.scene = scene
+        self.canvas = canvas
         self.annotationMgr = annotationMgr
+        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
+        self.areaBrush = QBrush(QColor(0, 200, 0, 70))
 
     @abstractmethod
     def process(self):
@@ -27,7 +26,6 @@ class BaseToolClass(object):
 
     def finish(self):
         self.process()
-        # self.scene.commandCompleted.emit(self)
 
     def undo(self):
         pass
@@ -53,9 +51,6 @@ class BaseToolClass(object):
 
     # Keyboard Events
     def keyPressEvent(self, event):
-        # if event.key() == Qt.Key_Escape:
-        #     self.parent.currentUndoCommand = None
-        #     self.clean()
         pass
 
     def keyReleaseEvent(self, event):
@@ -69,88 +64,72 @@ class BaseToolClass(object):
 #################################
 
 
-class PointPainter(BaseToolClass):
-    def __init__(self, scene, annotationMgr, start, radius=2):
-        super().__init__(scene, annotationMgr)
-
-        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
-        self.areaBrush = QBrush(QColor(0, 200, 0, 255))
-
+class DotPainter(BaseToolClass):
+    def __init__(self, canvas, annotationMgr, start):
+        super().__init__(canvas, annotationMgr)
         self.start = start
-        self.radius = radius
-
-        self.dotItem = self.scene.addEllipse(start.x()-self.radius,start.y()-self.radius, self.radius*2, self.radius*2, self.linePen, self.areaBrush)
-
-        print('====================================')
-        print('A new point is drawed')
+        print('======== Dot Annotation Drawing ========')
 
     def process(self):
-        try:
-            print("Point finished: (", self.start.x(), ', ', self.start.y(), ')')
-            # transfer the data to annotation manager
-            print("Pass the point to annotationMgr")
-            self.scene.removeItem(self.dotItem)
-            self.annotationMgr.new_annotation(POINT, np.array([self.start.x(), self.start.y()]))
-            # set default tool and update scene
-            self.scene.set_tool(POINT)
-            # self.scene.updateScene()
-        except Exception as e:
-            print(e)
-            print("Point annotation saving error :-(")
+        print("INFO: Dot Finished At ({},{})".format(self.start.x(), self.start.y()))
+        dataObj = {'timestamp': datim.today().isoformat('@'),  
+                   'type': DOT,  
+                   'labels': {},  
+                   'coords': [self.start.x(), self.start.y()]}
+        self.annotationMgr.new_annotation(dataObj)
+        self.canvas.set_tool(DOT)
 
 ###################################
 #### class for line drawing ####
 ###################################
 
-class LinePainter(BaseToolClass):
+class CurvePainter(BaseToolClass):
 
-    def __init__(self, scene, annotationMgr, start):
-        super().__init__(scene, annotationMgr)
+    def __init__(self, canvas, annotationMgr, start):
+        super().__init__(canvas, annotationMgr)
 
         self.start = start
-        self.line = QPolygonF()
-        self.line << self.start
-        # add a polygon figure to QGraphicsScene
-        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
+        self.line = QPolygonF() << self.start
         path = QPainterPath()
         path.addPolygon(self.line)
-
-        self.pathItem = self.scene.addPath(path, self.linePen)
-        print('====================================')
-        print('Drawing a new line')
+        self.pathItem = self.canvas.addPath(path, self.linePen)
+        print('======== Curve Annotation Drawing ========')
 
     def mouseMoveEvent(self, event):
         self.line << event.scenePos()
         path = QPainterPath()
         path.addPolygon(self.line)
         self.pathItem.setPath(path)
-        # self.polygonItem.update()
 
     def process(self):
-        try:
-            # get data from QPolygonF
+        # get data from QPolygonF
+        if self.line.size() < 2:
+            print('WARN: Curve Too Short :(')
+        else:
             vptr = self.line.data()
             vptr.setsize(8*2*self.line.size())
-            # compute a approximation of the original polygon
+            # approximation of the original polygon
             poly = np.ndarray(shape=(self.line.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, False))
-            # display message
-            minLength = self.annotationMgr.config['minLineLength']
+            minLength = self.annotationMgr.config['minCurveLength']
             if cv2.arcLength(poly_appx, False) < minLength:
-                print('Line too short :(')
+                print('WARN: Curve Too Short :(')
             else:
-                print("Line finished: ", self.pathItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
-                print("Pass the line to annotationMgr")
-                self.annotationMgr.new_annotation(LINE, poly_appx)
-            self.scene.removeItem(self.pathItem)
-            self.scene.set_tool(LINE)
-        except Exception as e:
-            print(e)
-            print("You should move the mouse a little more before finishing a polygon :-)")
+                bbx = self.pathItem.boundingRect()
+                dataObj = {'timestamp': datim.today().isoformat('@'),  
+                           'type': CURVE,  
+                           'labels': {},  
+                           'coords': [[poly_appx[i,0], poly_appx[i,1]] for i in range(len(poly_appx))],
+                           'bbx': [bbx.x(), bbx.y(), bbx.width(), bbx.height()]}
+                print("INFO: Curve Finished At: ", dataObj['bbx']) 
+                print("INFO: {} Points Approxmated By {} Vertices".format(poly_appx.shape[0], len(poly_appx)))
+                self.annotationMgr.new_annotation(dataObj)
+        self.canvas.removeItem(self.pathItem)
+        self.canvas.set_tool(CURVE)
 
     def cancel(self):
-        print("Drawing canceled")
-        self.scene.removeItem(self.pathItem)
+        print("INFO: Curve Drawing Canceled")
+        self.canvas.removeItem(self.pathItem)
 
 
 ###################################
@@ -159,18 +138,13 @@ class LinePainter(BaseToolClass):
 
 class PolygonPainter(BaseToolClass):
 
-    def __init__(self, scene, annotationMgr, start):
-        super().__init__(scene, annotationMgr)
+    def __init__(self, canvas, annotationMgr, start):
+        super().__init__(canvas, annotationMgr)
 
         self.start = start
-        self.polygon = QPolygonF()
-        self.polygon << self.start
-        # add a polygon figure to QGraphicsScene
-        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
-        self.areaBrush = QBrush(QColor(0, 200, 0, 70))
-        self.polygonItem = self.scene.addPolygon(self.polygon, self.linePen, self.areaBrush)
-        print('====================================')
-        print('Drawing a new polygon')
+        self.polygon = QPolygonF() << self.start
+        self.polygonItem = self.canvas.addPolygon(self.polygon, self.linePen, self.areaBrush)
+        print('======== Polygon Annotation Drawing ========')
 
     def mouseMoveEvent(self, event):
         self.polygon << event.scenePos()
@@ -178,46 +152,50 @@ class PolygonPainter(BaseToolClass):
         self.polygonItem.update()
 
     def process(self):
-        try:
-            # get data from QPolygonF
+        if self.polygon.size() < 2:
+            print('WARN: Polygon Too Short :(')
+        else:
             vptr = self.polygon.data()
             vptr.setsize(8*2*self.polygon.size())
             # compute a approximation of the original polygon
             poly = np.ndarray(shape=(self.polygon.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
             minArea = self.annotationMgr.config['minPolygonArea']
-            if poly_appx.shape[0] <= 3:
-                print("You should move the mouse a little more before finishing a polygon :(")
+            if poly_appx.shape[0] < 3:
+                print('WARN: Polygon Too Short :(')
             elif cv2.contourArea(poly_appx) < minArea:
-                print("Polygon area too small :(")
+                print('WARN: Polygon Too Short :(')
             else:
-                print("Polygon finished: ", self.polygonItem.boundingRect(), poly.shape[0], " points are approxmated by ", poly_appx.shape[0], " points")
-                print("Pass the polygon to annotationMgr")
-                self.annotationMgr.new_annotation(POLYGON, poly_appx)
-            self.scene.removeItem(self.polygonItem)
-            self.scene.set_tool(POLYGON)
-        except Exception as e:
-            print(e)
+                bbx = self.polygonItem.boundingRect()
+                dataObj = {'timestamp': datim.today().isoformat('@'),  
+                           'type': POLYGON,  
+                           'labels': {},  
+                           'coords': [[poly_appx[i,0], poly_appx[i,1]] for i in range(len(poly_appx))],
+                           'bbx': [bbx.x(), bbx.y(), bbx.width(), bbx.height()]}
+                print("INFO: Polygon Finished At: ", dataObj['bbx']) 
+                print("INFO: {} Points Approxmated By {} Vertices".format(poly_appx.shape[0], len(poly_appx)))
+                self.annotationMgr.new_annotation(dataObj)
+        self.canvas.removeItem(self.polygonItem)
+        self.canvas.set_tool(POLYGON)
 
     def cancel(self):
-        print("Drawing canceled")
-        self.scene.removeItem(self.polygonItem)
+        print("INFO: Polygon Drawing Canceled")
+        self.canvas.removeItem(self.polygonItem)
 
 class LivewirePainter(PolygonPainter):
 
-    def __init__(self, scene, annotationMgr, start, radius=100):
-        super().__init__(scene, annotationMgr, start)
+    def __init__(self, canvas, annotationMgr, start, radius=100):
+        super().__init__(canvas, annotationMgr, start)
 
         self.radius = radius
         self.poly_tmp = QPolygonF()
-        # self.scene.sync_livewire_image()
-        self.scene.livewire.set_seed(self.start.x(), self.start.y(), self.radius)
-        print('====================================')
-        print('Livewire tool activated')
+        # self.canvas.sync_livewire_image()
+        self.canvas.livewire.set_seed(self.start.x(), self.start.y(), self.radius)
+        print('======== Livewire Drawing ========')
          
     def mouseSingleClickEvent(self, pt):
-        path_x, path_y = self.scene.livewire.get_path(pt.x(), pt.y())
-        self.scene.livewire.set_seed(pt.x(), pt.y(), self.radius)
+        path_x, path_y = self.canvas.livewire.get_path(pt.x(), pt.y())
+        self.canvas.livewire.set_seed(pt.x(), pt.y(), self.radius)
         for i in reversed(range(len(path_x)-1)):
             self.polygon << QPointF(path_x[i], path_y[i])
         self.polygonItem.setPolygon(self.polygon)
@@ -226,7 +204,7 @@ class LivewirePainter(PolygonPainter):
     def mouseMoveEvent(self, event):
         pt = event.scenePos()
         self.poly_tmp.clear()
-        path_x, path_y = self.scene.livewire.get_path(pt.x(), pt.y())
+        path_x, path_y = self.canvas.livewire.get_path(pt.x(), pt.y())
         for i in reversed(range(len(path_x)-1)):
             self.poly_tmp << QPointF(path_x[i], path_y[i])
         self.polygonItem.setPolygon(self.polygon+self.poly_tmp)
@@ -235,7 +213,7 @@ class LivewirePainter(PolygonPainter):
     def process(self):
         self.mouseSingleClickEvent
         super().process()
-        self.scene.set_tool(LIVEWIRE)
+        self.canvas.set_tool(LIVEWIRE)
     
 ###################################
 #### class for ellipse drawing ####
@@ -243,19 +221,16 @@ class LivewirePainter(PolygonPainter):
 
 class BBXPainter(BaseToolClass):
 
-    def __init__(self, scene, annotationMgr, start):
-        super().__init__(scene, annotationMgr)
+    def __init__(self, canvas, annotationMgr, start):
+        super().__init__(canvas, annotationMgr)
 
         self.start = start
         self.bbx = QRectF()
         self.bbx.setTopLeft(QPointF(start))
         self.bbx.setSize(QSizeF(0,0))
         # add a box item to QGraphicsScene
-        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
-        self.areaBrush = QBrush(QColor(0, 200, 0, 70))
-        self.bbxItem = self.scene.addRect(self.bbx, self.linePen, self.areaBrush)
-        print('====================================')
-        print('Drawing a new bounding box')
+        self.bbxItem = self.canvas.addRect(self.bbx, self.linePen, self.areaBrush)
+        print('======== Bounding Box Drawing ========')
 
     def mouseMoveEvent(self, event):
         topleft, size = self._getRectParas(self.start, event.scenePos())
@@ -272,33 +247,31 @@ class BBXPainter(BaseToolClass):
         return QPointF(x, y), QSizeF(w, h)
 
     def process(self):
-        try:
-            minLength = self.annotationMgr.config['minBBXLength']
-            if self.bbx.width() < minLength or self.bbx.height() < minLength:
-                print('Bounding box too small :(')
-            else:
-                print("Bounding box finished: top left point (", self.bbx.left(), ', ', self.bbx.top(), '), size (', self.bbx.width(), ', ', self.bbx.height(), ')')
-                # transfer the data to annotation manager
-                print("Pass the bounding box to annotationMgr")
-                self.annotationMgr.new_annotation(BBX, np.array((self.bbx.x(), self.bbx.y(), self.bbx.width(), self.bbx.height())))
-            self.scene.removeItem(self.bbxItem)
-            self.scene.set_tool(BBX)
-        except Exception as e:
-            print(e)
-            print("Bounding box drawing error :-(")
+        minLength = self.annotationMgr.config['minBBXLength']
+        if self.bbx.width() < minLength or self.bbx.height() < minLength:
+            print('WARN: Bounding Box Too Small :(')
+        else:
+            dataObj = {'timestamp': datim.today().isoformat('@'),  
+                       'type': BBX,  
+                       'labels': {}, 
+                       'bbx': [self.bbx.left(), self.bbx.top(), self.bbx.width(), self.bbx.height()]}
+            print("INFO: Bounding Box Finished At: ", dataObj['bbx']) 
+            self.annotationMgr.new_annotation(dataObj)
+        self.canvas.removeItem(self.bbxItem)
+        self.canvas.set_tool(BBX)
 
     def cancel(self):
-        print("Drawing canceled")
-        self.scene.removeItem(self.bbxItem)
+        print("INFO: Bounding Box Drawing Canceled")
+        self.canvas.removeItem(self.bbxItem)
 
 ##################################
 #### class for circle drawing ####
 ##################################
 
-class OvalPainter(BaseToolClass):
+class EllipsePainter(BaseToolClass):
 
-    def __init__(self, scene, annotationMgr, start):
-        super().__init__(scene, annotationMgr)
+    def __init__(self, canvas, annotationMgr, start):
+        super().__init__(canvas, annotationMgr)
 
         self.h = 0
         self.w_ratio = 1
@@ -310,12 +283,8 @@ class OvalPainter(BaseToolClass):
         self.bbx = QRectF()
 
         # add a box item to QGraphicsScene
-        self.linePen = QPen(QColor(0, 200, 0, 255), 0, Qt.DashLine, Qt.RoundCap, Qt.RoundJoin)
-        self.areaBrush = QBrush(QColor(0, 200, 0, 70))
-        self.ovalItem = self.scene.addEllipse(self.bbx, self.linePen, self.areaBrush)
-        print('====================================')
-        print('Drawing a new ellipse')
-
+        self.ovalItem = self.canvas.addEllipse(self.bbx, self.linePen, self.areaBrush)
+        print('======== Ellipse Annotation Drawing ========')
 
     def mouseMoveEvent(self, event):
         self._updateSize(self.start, event.scenePos())
@@ -342,42 +311,44 @@ class OvalPainter(BaseToolClass):
         self.ovalItem.update()
 
     def _resizeBBX(self):
-        self.bbx.setTopLeft(QPointF(-1 * self.w_ratio*self.h / 2, -1*self.h / 2))
-        self.bbx.setSize(QSizeF(self.w_ratio*self.h,self.h))
+        # self.bbx.setTopLeft(QPointF(-1 * self.w_ratio*self.h / 2, -1*self.h / 2))
+        # self.bbx.setSize(QSizeF(self.w_ratio*self.h,self.h))
+        self.bbx.setTopLeft(QPointF(-1*self.h / 2, -1 * self.w_ratio*self.h / 2))
+        self.bbx.setSize(QSizeF(self.h, self.w_ratio*self.h))
 
     def _transformOval(self):
         t = QTransform()
         t.translate(self.cx, self.cy)
         # print(-1 * self.angle + 90)
-        t.rotate(-1 * self.angle + 90)
+        t.rotate(-1 * self.angle)
         self.ovalItem.setTransform(t)
 
 
     def process(self):
-        try:
-            minAxis = self.annotationMgr.config['minOvalAxis']
-            if self.h < minAxis or self.h * self.w_ratio < minAxis:
-                print('Ellipse too small :(')
-            else:
-                print("Ellipse finished: center (", self.cx, ', ', self.cy,
-                    '), size (', self.h, ', ', self.w_ratio*self.h, '), orientation ', self.angle)
-                print("Pass the ellipse to annotationMgr")
-                paras = {'center': np.array((self.cx, self.cy)), 'angle': self.angle,
-                        'axis': np.array((self.h, self.h*self.w_ratio))}
-                self.annotationMgr.new_annotation(OVAL, paras)
-            self.scene.removeItem(self.ovalItem)
-            self.scene.set_tool(OVAL)
-        except Exception as e:
-            print(e)
-            print("Ellipse drawing error :-(")
+        minAxis = self.annotationMgr.config['minEllipseAxis']
+        if self.h < minAxis or self.h * self.w_ratio < minAxis:
+            print('WARN: Ellipse Too Small :(')
+        else:
+            dataObj = {'timestamp': datim.today().isoformat('@'),  
+                       'type': ELLIPSE,  
+                       'labels': {},  
+                       'coords': [self.cx, self.cy],  
+                       'angle': self.angle,  
+                       'axis': [self.h, self.w_ratio*self.h],
+                       'bbx': [0, 0, 0, 0]}
+            print("INFO: Ellipse Finished at ({},{}), with axis ({},{}), in orientation {}".format(self.cx, self.cy, self.h, self.w_ratio*self.h, self.angle))
+            self.annotationMgr.new_annotation(dataObj)
+        self.canvas.removeItem(self.ovalItem)
+        self.canvas.set_tool(ELLIPSE)
+
 
     def cancel(self):
         print("Drawing canceled")
-        self.scene.removeItem(self.ovalItem)
+        self.canvas.removeItem(self.ovalItem)
 
 class DeleteAnnotation(BaseToolClass):
-    def __init__(self, scene, annotationMgr, graphItems):
-        super().__init__(scene, annotationMgr)
+    def __init__(self, canvas, annotationMgr, graphItems):
+        super().__init__(canvas, annotationMgr)
         self.graphItems = graphItems
         self.finish()
 

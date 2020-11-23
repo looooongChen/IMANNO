@@ -20,7 +20,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>17</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -50,6 +50,7 @@
     <addaction name="separator"/>
     <addaction name="actionConvertAnnotations"/>
     <addaction name="actionCollectDistributeAnnotations"/>
+    <addaction name="actionToJSON"/>
    </widget>
    <widget class="QMenu" name="menuLable">
     <property name="title">
@@ -491,6 +492,15 @@
    </property>
    <property name="text">
     <string>Project Report</string>
+   </property>
+  </action>
+  <action name="actionToJSON">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/json.png</normaloff>../icons/json.png</iconset>
+   </property>
+   <property name="text">
+    <string>HDFf5 to JSON</string>
    </property>
   </action>
  </widget>

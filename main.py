@@ -17,7 +17,7 @@ from components.annotationManager import AnnotationManager
 from components.canvas import Canvas, View
 from components.labelDisp import LabelDispDock
 from components.fileList import FileListDock, ImageTreeItem
-from components.messages import open_message
+from components.messages import open_message, ProgressDiag
 from components.enumDef import *
 from components.commands import *
 
@@ -63,15 +63,14 @@ class MainWindow(QMainWindow):
         # setup annotation manager
         self.labelMgr = LabelManager(self.config)
         self.annotationMgr = AnnotationManager(self.config, self.labelMgr)
-        # setup the canvas and view
-        self.view = View(self.config)
-        self.canvas= Canvas(self.config, self.image, self.view, self.annotationMgr)
-        self.setCentralWidget(self.view)
+        # setup the canvas
+        self.canvas= Canvas(self.config, self.image, self.annotationMgr)
+        self.setCentralWidget(self.canvas.view)
+        # label display docker
+        self.labelDisp = LabelDispDock(self.config, self.labelMgr)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.labelDisp)
         # setup project
         self.project = Project(self.annotationMgr)
-        # label display docker
-        self.labelDisp = LabelDispDock(self.config, self.labelMgr, self.canvas, self)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.labelDisp)
         # file list docker
         self.fileList = FileListDock(self.config, self.project, self.annotationMgr, self)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.fileList)
@@ -118,6 +117,7 @@ class MainWindow(QMainWindow):
 
         # project menus
         self.actionProjectRemoveDuplicate.triggered.connect(self.project_remove_duplicate)
+        self.actionProjectMerge.triggered.connect(self.project_merge)
         self.actionProjectSearch.triggered.connect(self.project_search_images)
         self.actionProjectReport.triggered.connect(self.project_report)
 
@@ -126,20 +126,20 @@ class MainWindow(QMainWindow):
         self.actionPolygon.triggered.connect(lambda :self.set_tool(POLYGON))
         self.actionLivewire.triggered.connect(lambda :self.set_tool(LIVEWIRE, {'scale': 1/self.livewireGranularity.value()}))
         self.actionBounding_Box.triggered.connect(lambda :self.set_tool(BBX))
-        self.actionEllipse.triggered.connect(lambda :self.set_tool(OVAL))
-        self.actionLine.triggered.connect(lambda :self.set_tool(LINE))
-        self.actionDot.triggered.connect(lambda :self.set_tool(POINT))
-        self.actionDelete.triggered.connect(self.deleteItem)
+        self.actionEllipse.triggered.connect(lambda :self.set_tool(ELLIPSE))
+        self.actionLine.triggered.connect(lambda :self.set_tool(CURVE))
+        self.actionDot.triggered.connect(lambda :self.set_tool(DOT))
+        self.actionDelete.triggered.connect(self.canvas.deleteItem)
 
         self.actionConvertAnnotations.triggered.connect(self.export_annotation)
-        self.actionProjectMerge.triggered.connect(self.project_merge)
         self.actionCollectDistributeAnnotations.triggered.connect(self.collect_distribute_annotations)
+        self.actionToJSON.triggered.connect(self.hdf2json)
         # self.actionDistributeAnnotations.triggered.connect(self.distribute_annotations)
         # self.actionCollectAnnotations.triggered.connect(self.collect_annotations)
 
         # label menu actions
-        self.actionImportLabel.triggered.connect(lambda :self.labelDisp.import_labels(filename=None))
-        self.actionExportLabel.triggered.connect(lambda :self.labelDisp.export_labels(filename=None))
+        self.actionImportLabel.triggered.connect(lambda :self.labelDisp.load_labels(filename=None))
+        self.actionExportLabel.triggered.connect(lambda :self.labelDisp.save_labels(filename=None))
         self.actionLoadDefault.triggered.connect(self.labelDisp.load_default_labels)
         self.actionSetAsDefault.triggered.connect(self.labelDisp.save_default_labels)
 
@@ -160,8 +160,11 @@ class MainWindow(QMainWindow):
         self.livewireGranularityTimer.timeout.connect(self.change_livewire_granularity)
 
         # signal between components
-        self.canvas.signalAnnotationSelected.connect(self.labelDisp.refresh_infoTable)
-        self.canvas.signalAnnotationReleased.connect(self.labelDisp.refresh_infoTable)
+        self.labelDisp.signalLabelAssign.connect(self.canvas.assign_selected_items)
+        self.labelDisp.signalDispChannelChanged.connect(self.canvas.sync_disp)
+        self.canvas.signalAnnotationSelected.connect(self.labelDisp.sync_annotationDisp)
+        self.canvas.signalAnnotationReleased.connect(self.labelDisp.clear_annotationDisp)
+
         self.fileList.signalImageChange.connect(self.load)
         self.fileList.signalImport.connect(self.open_directory)
 
@@ -171,7 +174,7 @@ class MainWindow(QMainWindow):
 
     def load_image(self, image_path):
         if os.path.isfile(image_path):
-            print("File opened: ", image_path)
+            print("File Opened: ", image_path)
             self.image.open(image_path)
             self.image.set_auto_contrast(self.actionAutoContrast.isChecked())
             if self.project.is_open():
@@ -188,10 +191,10 @@ class MainWindow(QMainWindow):
     
     def load_annotation(self, annotation_path):
         if annotation_path is not None:
+            print("Annotation Loaded: ", annotation_path)
             self.annotationMgr.load(annotation_path)
-            self.canvas.add_graphItems()
-            self.canvas.refresh()
-            self.labelDisp.refresh()
+            # self.canvas.sync()
+            self.labelDisp.sync()
 
     def load(self, image):
         '''
@@ -203,9 +206,10 @@ class MainWindow(QMainWindow):
         # load image and annotation
         if self.project.is_open() and isinstance(image, ImageTreeItem):
             idx = image.idx
+            ## hdf5 compatible
+            self.project.index_id[idx].set_annotation_path()
             image_path = self.project.get_image_path(idx)
             annotation_path = self.project.get_annotation_path(idx)
-            print('open', image_path, annotation_path)
             # update path when necessary
             if not os.path.isfile(image_path):
                 if QMessageBox.Yes == QMessageBox.question(None, "Image Path", "Image file not found, would you like to select file manually? You can also use 'Project->Reimport Images' to handle changed image locations in batches ", QMessageBox.Yes | QMessageBox.No):
@@ -215,7 +219,7 @@ class MainWindow(QMainWindow):
                         image.setText(self.project.get_image_name(idx))
         else:
             image_path = image.path if isinstance(image, ImageTreeItem) else image
-            annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT 
+            annotation_path = os.path.splitext(image_path)[0] + ANNOTATION_EXT 
         # load image
         image_load_success = self.load_image(image_path)
         if isinstance(image, ImageTreeItem):
@@ -229,6 +233,29 @@ class MainWindow(QMainWindow):
     ####################################
     #### porject, file, folder open ####
     ####################################
+
+    def hdf2json(self):
+        self.annotationMgr.save()
+        if self.project.is_open():
+            self.project.save()
+            progress = ProgressDiag(len(self.project.index_id), 'Converting hdf5 to json ...')
+            progress.show()
+            for _, item in self.project.index_id.items():
+                progress.new_item('Propcessed: ' + item.image_path())
+                if os.path.splitext(item.annotation_path())[1] == '.hdf5':
+                    item.set_annotation_path()
+                    self.annotationMgr.load(item.annotation_path(), graphItem=False)
+            self.project.save()
+        elif self.fileList.fileList.topLevelItemCount() > 0:
+            progress = ProgressDiag(self.fileList.fileList.topLevelItemCount(), 'Converting hdf5 to json ...')
+            progress.show()
+            for i in range(self.fileList.fileList.topLevelItemCount()):
+                item = self.fileList.fileList.topLevelItem(i)
+                progress.new_item('Propcessed: ' + item.path)
+                anno_json = os.path.splitext(item.path)[0] + ANNOTATION_EXT 
+                anno_hdf5 = os.path.splitext(item.path)[0] + '.hdf5' 
+                if not os.path.isfile(anno_json) and os.path.isfile(anno_hdf5):
+                    self.annotationMgr.load(anno_json, graphItem=False)
         
     def open_project(self, filename=None):
         # save project
@@ -270,7 +297,7 @@ class MainWindow(QMainWindow):
             idx = self.project.add_images(filenames, f)
             self.fileList.add_list(idx, mode='project')
         else:
-            status = [os.path.splitext(f)[0] + '.' + ANNOTATION_EXT for f in filenames]
+            status = [os.path.splitext(f)[0] + ANNOTATION_EXT for f in filenames]
             status = [self.annotationMgr.get_status(s) for s in status] 
             self.fileList.init_list(filenames, status, mode='file')
             if len(filenames) > 0:
@@ -291,7 +318,7 @@ class MainWindow(QMainWindow):
                 idxs = self.project.add_images(files, f)
                 self.fileList.add_list(idxs, mode='project')
             else:
-                status = [os.path.splitext(f)[0] + '.' + ANNOTATION_EXT for f in files]
+                status = [os.path.splitext(f)[0] + ANNOTATION_EXT for f in files]
                 status = [self.annotationMgr.get_status(s) for s in status] 
                 self.fileList.init_list(files, status, mode='file')
 
@@ -338,6 +365,10 @@ class MainWindow(QMainWindow):
             self.open_project(path)
 
     def project_report(self):
+        # save project
+        self.project.save()
+        self.annotationMgr.save()
+        # counting 
         report = ProjectReport(self.config)
         report.init_table(self.project)
         report.exec()
@@ -397,12 +428,6 @@ class MainWindow(QMainWindow):
         
         return self.masks[flag]
     
-
-    def deleteItem(self):
-        self.canvas.deleteItem()
-        self.labelDisp.refresh_infoTable()
-
-
     def take_screenshot(self):
         msgBox = QMessageBox()
         msgBox.setWindowFlags(Qt.Dialog | Qt.Desktop)
@@ -452,7 +477,7 @@ class MainWindow(QMainWindow):
     def change_livewire_granularity(self, granularity=None):
         self.livewireGranularityTimer.stop()
         granularity = self.livewireGranularity.value() if granularity is None else granularity
-        self.canvas.sync_livewire_image(scale=1/granularity)
+        self.canvas.livewire.sync_image(scale=1/granularity)
 
     #### display
 
@@ -481,12 +506,11 @@ class MainWindow(QMainWindow):
         return status
     
     def hideMask(self):
-        channel = self.labelDisp.current_channel()
-        if channel != HIDE_ALL:
-            self.config['pre_display_channel'] = channel
+        if self.config.disp_channel != HIDE_ALL:
+            self.config.pre_disp_channel = self.config.disp_channel
             self.labelDisp.set_channel(HIDE_ALL)
         else:
-            self.labelDisp.set_channel(self.config['pre_display_channel'])
+            self.labelDisp.set_channel(self.config.pre_disp_channel)
 
     #### close
 

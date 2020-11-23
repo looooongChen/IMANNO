@@ -17,44 +17,70 @@ class Canvas(QGraphicsScene):
     signalAnnotationSelected = QtCore.pyqtSignal(Annotation)
     signalAnnotationReleased = QtCore.pyqtSignal()
 
-    def __init__(self, config, image, view, annotationMgr, parent=None):
+    def __init__(self, config, image, annotationMgr, parent=None):
         
         super().__init__(parent=parent)
         # class members
         self.config = config
         self.image = image
-        self.view = view
         self.annotationMgr = annotationMgr
-        self.bgPixmap = self.addPixmap(QPixmap.fromImage(QImage('icons/startscreen.png')))
-        self.livewire = Livewire()
-        # setup 
-        self.set_image(image)
-        self.set_view(self.view)
         self.annotationMgr.set_canvas(self)
-        # run-time stack
-        self.selectedItems = []
+        # set view
+        self.view = View(self.config)
+        self.view.setScene(self)
+        self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.view.show()
+        self.bgPixmap = self.addPixmap(QPixmap.fromImage(QImage('icons/startscreen.png')))
+        # setup livewire
+        self.livewire = Livewire()
+        self.livewire.set_image(image)
         # run-time status
+        self.selectedItems = []
         self.tool = BROWSE
         self.drawing = False
         self.currentCommand = None
-        self.current_scale = 1
+        self.currentScale = 1
         # time part
         # error occurs when pass event through signal
         self.time = None
         self.clickPos = None
         self.clickBtn = None
     
-    def set_image(self, image):
-        if isinstance(image, Image):
-            self.image = image
-            self.livewire.set_image(image)
+    def clear(self):
+        for item in self.items():
+            if item != self.bgPixmap:
+                self.removeItem(item)
+        self.selectedItems.clear()
 
-    def set_view(self, view):
-        if isinstance(view, QGraphicsView):
-            self.view = view
-            self.view.setScene(self)
-            self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-            self.view.show()
+    ###############################
+    #### graph item management ####
+    ###############################
+
+    def add_item(self, anno):
+        graphObj = anno.graphObject
+        graphObj.setPen(LINE_PEN['normal'])
+        graphObj.setBrush(AREA_BRUSH['normal'])
+        self.addItem(graphObj)
+
+    def remove_item(self, anno):
+        self.removeItem(anno.graphObject)
+
+    # def add_graphItems(self):
+    #     self.clear()
+    #     for _, annotation in self.annotationMgr.items():
+    #         self.add_item(annotation)
+
+    def assign_selected_items(self, label):
+        for item in self.selectedItems:
+            anno = self.annotationMgr.get_annotation_by_graphItem(item)
+            label.assign(anno)
+        if len(self.selectedItems) > 0:
+            anno = self.annotationMgr.get_annotation_by_graphItem(self.selectedItems[-1])
+            self.signalAnnotationSelected.emit(anno)
+
+    #########################
+    #### take screenshot ####
+    ######################### 
 
     def screenshot(self):
         sz = self.bgPixmap.boundingRect()
@@ -67,97 +93,61 @@ class Canvas(QGraphicsScene):
 
     def zoom(self, scale):
         self.view.scale(scale,scale)
-        self.current_scale = self.current_scale * scale
+        self.currentScale = self.currentScale * scale
 
     def recovery_scale(self):
-        self.view.scale(1/self.current_scale, 1/self.current_scale)
-        self.current_scale = 1
+        self.view.scale(1/self.currentScale, 1/self.currentScale)
+        self.currentScale = 1
 
     ###################################
     #### synchronize image display ####
     ###################################
 
-    def sync_image(self, image=None):
-        self.set_image(image)
-        if self.image is not None and self.image.is_open():
+    def sync(self):
+        self.sync_image()
+        self.sync_disp()
+
+    def sync_image(self):
+        if self.image.is_open():
             self.bgPixmap.setPixmap(QPixmap.fromImage(self.image.get_QImage()))
             self.view.setSceneRect(0,0,self.image.width,self.image.height)
             vis_rect = self.view.mapToScene(self.view.rect()).boundingRect()
             scale = min(vis_rect.width()/self.image.width, vis_rect.height()/self.image.height)
             self.view.scale(scale, scale)
             if self.tool == LIVEWIRE:
-                self.sync_livewire_image()
-    
-    def sync_livewire_image(self, image=None, scale=None):
-        self.livewire.sync_image(image=image, scale=scale)
+                self.livewire.sync_image()
 
+    def sync_disp(self):
+        channel = self.config.disp_channel
+        if channel == SHOW_ALL:
+            pen, brush = LINE_PEN['normal'], AREA_BRUSH['normal']
+        elif channel == HIDE_ALL:
+            pen, brush = LINE_PEN['hide'], AREA_BRUSH['hide']
+        else:
+            pen, brush = LINE_PEN['shadow'], AREA_BRUSH['shadow']
+
+        for _, anno in self.annotationMgr.items():
+            if channel in anno.labels.keys():
+                label = anno.labels[channel]
+                anno.graphObject.setPen(label.linePen())
+                anno.graphObject.setBrush(label.areaBrush())
+            else:
+                anno.graphObject.setPen(pen)
+                anno.graphObject.setBrush(brush)
+        self.highlight_items(self.selectedItems)
+    
     def set_tool(self, tool, paras=None):
         self.tool = tool
         paras = paras if isinstance(paras, dict) else {}
         if self.tool == LIVEWIRE:
-            self.sync_livewire_image(**paras)
+            self.livewire.sync_image(**paras)
         self.drawing = False
         self.currentCommand = None
-
-    ####################################
-    #### add and remove graph items ####
-    ####################################
-
-    def deleteItem(self):
-        if self.drawing:
-            self.cancel_operation()
-            self.drawing
-        else:
-            self.currentCommand = DeleteAnnotation(self, self.annotationMgr, self.selectedItems)
-            self.selectedItems.clear()
-
-    def clear_items(self):
-        for item in self.items():
-            if item != self.bgPixmap:
-                self.removeItem(item)
-        self.selectedItems.clear()
-
-    def add_graphItem(self, annotation, display_channel=None):
-        pen, brush = self.annotationMgr.appearance(annotation, display_channel)
-        graphObj = annotation.get_graphObject()
-        graphObj.setPen(pen)
-        graphObj.setBrush(brush)
-        self.addItem(graphObj)
-
-    def add_graphItems(self, display_channel=None):
-        self.clear_items()
-        for _, annotation in self.annotationMgr.annotations.items():
-            self.add_graphItem(annotation, display_channel)
 
     ##################################
     #### display relavant methods ####
     ##################################
 
-    def refresh(self):
-        for _, item in self.annotationMgr.annotations.items():
-            pen, brush = self.annotationMgr.appearance(item, self.config['display_channel'])
-            item.graphObject.setPen(pen)
-            item.graphObject.setBrush(brush)
-        self.highlight_items(self.selectedItems)
-        
-    def selectItem(self, event):
-        item = self.itemAt(event.scenePos(), QTransform())
-
-        for selected in self.selectedItems:
-            self.highlight(selected, 'restore')
-
-        if not event.modifiers() & Qt.ControlModifier:
-            self.selectedItems.clear()
-        if item is not self.bgPixmap and item not in self.selectedItems:
-            self.selectedItems.append(item)
-            anno = self.annotationMgr.get_annotation_by_graphItem(item)
-            if anno is not None:
-                self.signalAnnotationSelected.emit(anno)
-        else:
-            self.signalAnnotationReleased.emit()
-            self.selectedItems.clear()
-
-        self.highlight_items(self.selectedItems)
 
     def highlight(self, item, mode='highlight'):
         if mode == "highlight":
@@ -232,17 +222,17 @@ class Canvas(QGraphicsScene):
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
-                    self.currentCommand = OvalPainter(self, self.annotationMgr, self.clickPos)
+                    self.currentCommand = EllipsePainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
             elif self.tool == DOT:
-                self.currentCommand = PointPainter(self, self.annotationMgr, self.clickPos, self.config['DotAnnotationRadius'])
+                self.currentCommand = DotPainter(self, self.annotationMgr, self.clickPos)
                 self.currentCommand.finish()
             elif self.tool == CURVE:
                 if self.drawing:
                     self.currentCommand.finish()
                     self.drawing = False
                 else:
-                    self.currentCommand = LinePainter(self, self.annotationMgr, self.clickPos)
+                    self.currentCommand = CurvePainter(self, self.annotationMgr, self.clickPos)
                     self.drawing = True
             if self.tool == BROWSE:
                 pass
@@ -289,6 +279,35 @@ class Canvas(QGraphicsScene):
                 self.currentCommand.expand()
             elif self.tool == DOT:
                 self.currentCommand.expand()
+
+    def selectItem(self, event):
+        item = self.itemAt(event.scenePos(), QTransform())
+
+        for selected in self.selectedItems:
+            self.highlight(selected, 'restore')
+
+        if not event.modifiers() & Qt.ControlModifier:
+            self.selectedItems.clear()
+        if item is not self.bgPixmap and item not in self.selectedItems:
+            self.selectedItems.append(item)
+            anno = self.annotationMgr.get_annotation_by_graphItem(item)
+            if anno is not None:
+                self.signalAnnotationSelected.emit(anno)
+        else:
+            self.signalAnnotationReleased.emit()
+            self.selectedItems.clear()
+
+        self.highlight_items(self.selectedItems)
+
+    def deleteItem(self):
+        if self.drawing:
+            self.cancel_operation()
+            self.drawing
+        else:
+            for item in self.selectedItems:
+                self.annotationMgr.remove_annotation_by_graphItem(item)
+                self.signalAnnotationReleased.emit()
+            self.selectedItems.clear()
 
 
 class View(QGraphicsView):

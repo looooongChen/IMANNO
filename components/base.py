@@ -21,6 +21,9 @@ class Table(object):
     def clear(self):
         self.table.clear()
 
+    def pop(self, *args):
+        return self.table.pop(*args)
+
     def __iter__(self):
         return iter(self.table)
     

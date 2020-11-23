@@ -4,82 +4,63 @@ from PIL import Image
 import numpy as np
 import math
 import cv2
+from .func_annotation import anno_read
 
-## exprot mask
+
 def export_mask(anno_path, img_path, save_as_one=True):
 
-    supported_type = [POLYGON]
-
-    with h5py.File(anno_path, 'r') as location:
-        
-        image = Image.open(img_path)
-        width, height = image.size
-        
-        if save_as_one:
-            mask = np.zeros((height, width), np.uint16)
-        else:
-            mask = []
-            mask_tmp = np.zeros((height, width), np.uint8)
-
-        count = 0
-        if 'annotations' in location.keys():
-            for timestamp in location['annotations']:
-                anno = location['annotations'][timestamp]
-
-                if anno.attrs['type'] not in supported_type:
-                    print("Mask export: only " + str(supported_type) + " are supported.")
-                    continue
-
-                # plot objects
-                if anno.attrs['type'] == POLYGON:
-                    count += 1
-                    bbx = anno['boundingBox']
-                    pts = np.stack([anno['polygon'][:,0]+bbx[0], anno['polygon'][:,1]+bbx[1]], axis=1)
-                    pts = np.expand_dims(pts, 0)
-                    if save_as_one:
-                        cv2.fillPoly(mask, pts.astype(np.int32), count)
-                    else:
-                        mask_tmp = mask_tmp * 0
-                        cv2.fillPoly(mask_tmp, pts.astype(np.int32), 255)
-                        mask.append(mask_tmp.copy())
-
-        is_empty = count == 0
-
-    return mask, is_empty
-
-def export_bbx(hdf5_path, img_path, export_property=None):
-
-    annoList = []
-    supported_type = [POLYGON, BBX]
-
-    if export_property == '':
-        export_property = None
-
-    with h5py.File(hdf5_path, 'r') as location:
-        
-        count = 0
-        if 'annotations' in location.keys():
-            for timestamp in location['annotations']:
-                anno = location['annotations'][timestamp]
-                
-                if anno.attrs['type'] not in supported_type:
-                    print("BBX export: only " + str(supported_type) + " are supported.")
-                    continue
-
-                label_name = 'none'
-                if export_property is not None:
-                    if 'labels' in anno.keys():
-                        for attr_name in anno['labels'].keys():
-                            if attr_name == export_property:
-                                label_name = anno['labels'][attr_name].attrs['label_name']
-
-                bbx = anno['boundingBox']
-                annoList.append({'name': label_name, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
-                count += 1
+    anno_file = anno_read(anno_path)
+    image = Image.open(img_path)
+    width, height = image.size
     
-    is_empty = count == 0
+    if save_as_one:
+        mask = np.zeros((height, width), np.uint16)
+    else:
+        mask_tmp = np.zeros((height, width), np.uint8)
+        mask = []
 
-    return annoList, is_empty
+    count = 0
+    for _, anno in anno_file['annotations'].items(): 
+        anno_type = anno['type']
+
+        if anno_type == POLYGON:
+            count += 1
+            pts = np.expand_dims(np.array(anno['coords']), 0)
+            if save_as_one:
+                cv2.fillPoly(mask, pts.astype(np.int32), count)
+            else:
+                mask_tmp = mask_tmp * 0
+                cv2.fillPoly(mask_tmp, pts.astype(np.int32), 255)
+                mask.append(mask_tmp.copy())
+        else:
+            print('Mask Export: ' + anno_type + ' not supported')
+
+    return mask, count == 0
+
+
+def export_bbx(anno_path, img_path, export_property=None):
+
+    anno_file = anno_read(anno_path)
+    annoList = []
+    export_property = None if export_property == '' else None
+
+    count = 0
+    for _, anno in anno_file['annotations'].items(): 
+
+        if 'bbx' in anno.keys():
+            count += 1
+
+            label_name = 'none'
+            if export_property in anno['labels'].keys():
+                label_name = anno['labels'][export_property]
+
+            bbx = anno['bbx']
+            annoList.append({'name': label_name, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
+        else:
+            print('Bounding Box Export: ' + anno['type'] + ' not supported')     
+    
+    return annoList, count == 0
+
 
 def createXml(AnnoList, img_path, save_name):
     """
@@ -121,26 +102,26 @@ def createXml(AnnoList, img_path, save_name):
 
     root.appendChild(imgSize)
 
-    for dict in AnnoList:
+    for anno_dict in AnnoList:
 
         nodeObject = doc.createElement('object')
 
         nodeName = doc.createElement('name')
-        nodeName.appendChild(doc.createTextNode(str(dict['name'])))
+        nodeName.appendChild(doc.createTextNode(str(anno_dict['name'])))
 
         nodeBndbox = doc.createElement('bndbox')
 
         nodeXmin = doc.createElement('xmin')
-        nodeXmin.appendChild(doc.createTextNode(str(int(dict['bndbox'][0]))))
+        nodeXmin.appendChild(doc.createTextNode(str(int(anno_dict['bndbox'][0]))))
 
         nodeYmin = doc.createElement('ymin')
-        nodeYmin.appendChild(doc.createTextNode(str(int(dict['bndbox'][1]))))
+        nodeYmin.appendChild(doc.createTextNode(str(int(anno_dict['bndbox'][1]))))
 
         nodeXmax = doc.createElement('xmax')
-        nodeXmax.appendChild(doc.createTextNode(str(int(dict['bndbox'][2]))))
+        nodeXmax.appendChild(doc.createTextNode(str(int(anno_dict['bndbox'][2]))))
 
         nodeYmax = doc.createElement('ymax')
-        nodeYmax.appendChild(doc.createTextNode(str(int(dict['bndbox'][3]))))
+        nodeYmax.appendChild(doc.createTextNode(str(int(anno_dict['bndbox'][3]))))
 
         nodeBndbox.appendChild(nodeXmin)
         nodeBndbox.appendChild(nodeYmin)
@@ -156,44 +137,36 @@ def createXml(AnnoList, img_path, save_name):
     doc.writexml(fp, indent='\t', addindent='\t', newl='\n', encoding="utf-8")
     fp.close()
 
-def extract_patch(hdf5_path, img_path, padding=0):
 
-    supported_type = [POLYGON, BBX]
+def extract_patch(anno_path, img_path, padding=0):
 
-    if padding < 0:
-        print("negative padding value, reset to 0")
-        padding = 0
+    anno_file = anno_read(anno_path)
+    image = Image.open(img_path)
+    padding = 0 if padding < 0 else padding
 
-    with h5py.File(hdf5_path, 'r') as location:
-        image = Image.open(img_path)
+    patches_img, patches_mask = [], []
+    for _, anno in anno_file['annotations'].items():
+        if 'bbx' in anno.keys():
+            # extract patches
+            bbx = anno['bbx']
+            x, y, w, h = bbx[0], bbx[1], bbx[2], bbx[3] 
+            padding_w, padding_h = round(w*padding), round(h*padding)
+            Xmin, Xmax = int(math.floor(max(x-padding_w, 0))), int(math.ceil(min(x+w+1+padding_w, image.width)))
+            Ymin, Ymax = int(math.floor(max(y-padding_h, 0))), int(math.ceil(min(y+h+1+padding_h, image.height)))
+            offset_x, offset_y = x - Xmin, y - Ymin
+            image_patch = image.crop((Xmin, Ymin, Xmax, Ymax))
 
-        patches_img, patches_mask = [], []
-        if 'annotations' in location.keys():
-            for timestamp in location['annotations']:
-                anno = location['annotations'][timestamp]
-                if anno.attrs['type'] not in supported_type:
-                    print("Patch export: only " + str(supported_type) + " are supported.")
-                    continue
-
-                # extract patches
-                bbx = anno['boundingBox']
-                x, y, w, h = bbx[0], bbx[1], bbx[2], bbx[3] 
-                padding_w, padding_h = round(w*padding), round(h*padding)
-                Xmin, Xmax = int(math.floor(max(x-padding_w, 0))), int(math.ceil(min(x+w+1+padding_w, image.width)))
-                Ymin, Ymax = int(math.floor(max(y-padding_h, 0))), int(math.ceil(min(y+h+1+padding_h, image.height)))
-                offset_x, offset_y = x - Xmin, y - Ymin
-                image_patch = image.crop((Xmin, Ymin, Xmax, Ymax))
-                # image_patch = np.array(image)[Ymin:Ymax, Xmin:Xmax]
-
-                mask_patch = None
-                if anno.attrs['type'] == POLYGON:
-                    mask_patch = np.zeros((image_patch.height, image_patch.width), np.uint8)
-                    pts = np.stack([anno['polygon'][:,0]+offset_x, anno['polygon'][:,1]+offset_y], axis=1)
-                    pts = np.expand_dims(pts, 0)
-                    cv2.fillPoly(mask_patch, pts.astype(np.int32), 255)
-                
-                patches_img.append(image_patch)
-                patches_mask.append(mask_patch)
+            mask_patch = None
+            if anno.attrs['type'] == POLYGON:
+                mask_patch = np.zeros((image_patch.height, image_patch.width), np.uint8)
+                pts = np.stack([anno['polygon'][:,0]+offset_x, anno['polygon'][:,1]+offset_y], axis=1)
+                pts = np.expand_dims(pts, 0)
+                cv2.fillPoly(mask_patch, pts.astype(np.int32), 255)
+            
+            patches_img.append(image_patch)
+            patches_mask.append(mask_patch)
+        else:
+            print('Patch Export: ' + anno['type'] + ' not supported')     
                 
     return patches_img, patches_mask
 

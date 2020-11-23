@@ -135,17 +135,22 @@ class AnnotationDistributor(QDialog):
                     file_item = self.project.index_id[idx]
                     image_path = file_item.image_path()
                     if os.path.isfile(image_path):
-                        anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
                         if mode == 'distribute':
+                            ## hdf5 compatible
+                            anno_path = os.path.splitext(image_path)[0] + os.path.splitext(file_item.annotation_path())[1]
                             if op == OP_MERGE:
                                 anno_merge(anno_path, file_item.annotation_path())
                             elif op == OP_OVERWRITE:
-                                shutil.copy(file_item.annotation_path(), anno_path)
+                                anno_copy(anno_path, file_item.annotation_path())
                         elif mode == 'collect':
+                            ## hdf5 compatible
+                            anno_path = os.path.splitext(image_path)[0] + ANNOTATION_EXT
+                            if not os.path.isfile(anno_path):
+                                anno_path = os.path.splitext(image_path)[0] + '.hdf5'
                             if op == OP_MERGE:
                                 anno_merge(file_item.annotation_path(), anno_path)
                             elif op == OP_OVERWRITE:
-                                shutil.copy(anno_path, file_item.annotation_path())
+                                anno_copy(file_item.annotation_path(), anno_path)
                             self.project.set_status(idx, get_status(file_item.annotation_path()))
                         elif mode == 'delete':
                             if os.path.isfile(anno_path):

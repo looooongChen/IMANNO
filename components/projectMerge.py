@@ -168,7 +168,7 @@ class ProjectMerger(QDialog):
             if mode == 'merge':
                 anno_merge(item_dst.annotation_path(), item_src.annotation_path())
             else:
-                shutil.copy(item_src.annotation_path(), item_dst.annotation_path())
+                anno_copy(item_dst.annotation_path(), item_src.annotation_path())
             dstProject.set_status(idx_dst, get_status(item_dst.annotation_path()))
                 
         dstProject.save()      

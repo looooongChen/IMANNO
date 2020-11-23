@@ -87,7 +87,7 @@ Polygon:
 
 anno_polygon = {'timestamp': datim.today().isoformat('@'),  
                 'type': 'polygon',
-                'labels': {propperty: label, ...},
+                'labels': {property: label, ...},
                 'coords': [[x1, y1], [x2, y2], ...], 
                 'bbx': [x, y, w, h]}
 
@@ -99,7 +99,7 @@ Bouding box:
 
 anno_bbx = {'timestamp': datim.today().isoformat('@'),  
             'type': 'bbx',  
-            'labels': {propperty: label, ...},  
+            'labels': {property: label, ...},  
             'bbx': [x, y, w, h]}
 
 Ellipse: 
@@ -110,7 +110,7 @@ Ellipse:
 
 anno_ellipse = {'timestamp': datim.today().isoformat('@'),  
                 'type': 'ellipse',  
-                'labels': {propperty: label, ...},  
+                'labels': {property: label, ...},  
                 'coords': [x, y],  
                 'angle': angle,  
                 'axis': [axis_major, axis_minor],
@@ -121,12 +121,12 @@ Dot:
 
 anno_dot = {'timestamp': datim.today().isoformat('@'),  
             'type': 'dot',  
-            'labels': {propperty: label, ...},  
+            'labels': {property: label, ...},  
             'coords': [x, y]}
 
 anno_curve = {'timestamp': datim.today().isoformat('@'),  
               'type': 'curve',  
-              'labels': {propperty: label, ...},  
+              'labels': {property: label, ...},  
               'coords': [[x1, y1], [x2, y2], ...],
               'bbx': [x, y, w, h]}
 

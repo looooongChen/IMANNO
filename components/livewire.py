@@ -134,7 +134,7 @@ class Livewire(object):
                             self.cost[n[1], n[0]] = C_tmp
                             self.previous[n[1], n[0]] = self._pt2index(k)
                         heapq.heappush(active, (C_tmp, n))
-                print('New seed set took', time.time()-start, 'seconds.')
+                print('INFO: New Seed Computed in {} Seconds'.format(time.time()-start))
 
     def get_path(self, x, y):
         pt = (round(x*self.scale_x), round(y*self.scale_y))

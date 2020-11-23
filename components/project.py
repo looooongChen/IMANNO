@@ -1,10 +1,10 @@
-from PyQt5.QtWidgets import QDialog
-from PyQt5.QtCore import QCoreApplication, Qt
-from PyQt5 import uic
+from PyQt5.QtCore import Qt
+# from PyQt5.QtCore import QCoreApplication, Qt
 from .image import compute_checksum, Image
 from .func_annotation import *
-from .messages import annotation_move_message
+from .messages import annotation_move_message, ProgressDiag
 from .enumDef import *
+
 from datetime import date
 from pathlib import Path
 import glob
@@ -79,10 +79,10 @@ class Item(object):
             anno_dir = os.path.join(self.proj_dir, 'annotations', self.data['idx'])
             if not os.path.exists(anno_dir):
                 os.makedirs(anno_dir)
-            self.data['annotation_path'] = os.path.join('annotations', self.data['idx'], 'anno.'+ANNOTATION_EXT)
+            self.data['annotation_path'] = os.path.join('annotations', self.data['idx'], 'anno'+ANNOTATION_EXT)
             anno_path = os.path.join(self.proj_dir, self.data['annotation_path'])
-            with h5py.File(anno_path, 'a') as location:
-                location.attrs['status'] = UNFINISHED
+            # with h5py.File(anno_path, 'a') as location:
+            #     location.attrs['status'] = UNFINISHED
     
     def annotation_path(self):
         if self.data['idx'] is not None:
@@ -115,8 +115,8 @@ class Item(object):
         if status in [FINISHED, UNFINISHED, CONFIRMED, PROBLEM]:
             anno_path = self.annotation_path()
             if anno_path is not None:
-                with h5py.File(anno_path, 'a') as location:
-                    location.attrs['status'] = status
+                # with h5py.File(anno_path, 'a') as location:
+                #     location.attrs['status'] = status
                 self.data['status'] = status
 
     def status(self):
@@ -258,10 +258,15 @@ class Project(object):
         # add image path (checksum is also set here)  
         item.set_image_path(image_path)
         # copy annotation file if exist 
-        annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
-        if os.path.isfile(annotation_path):
-            item.set_status(get_status(annotation_path))
-            shutil.copy(annotation_path, item.annotation_path())
+        ## hdf5 compatible
+        annotation_json = os.path.splitext(image_path)[0] + ANNOTATION_EXT
+        annotation_hdf5 = os.path.splitext(image_path)[0] + '.hdf5'
+        if os.path.isfile(annotation_json):
+            item.set_status(get_status(annotation_json))
+            anno_copy(item.annotation_path(), annotation_json)
+        elif os.path.isfile(annotation_hdf5):
+            item.set_status(get_status(annotation_json))
+            anno_copy(item.annotation_path(), annotation_hdf5)
         # update index
         self.index_id[idx] = item
         self.add_folder(folder)
@@ -349,7 +354,7 @@ class Project(object):
         for f in fnames:
             if progressBar:
                 progress.new_item('retrieved image: ' + f)
-                QCoreApplication.processEvents()
+                # QCoreApplication.processEvents()
             item = Item(self.proj_dir)
             item.set_image_path(f)
             files.append(item)
@@ -385,7 +390,7 @@ class Project(object):
         for item in files:
             if progressBar:
                 progress.new_item('processed: ' + item.image_path())
-                QCoreApplication.processEvents()
+                # QCoreApplication.processEvents()
             if check_exist and not item.exists():
                 continue
             attr = getattr(item, attr_name)()
@@ -432,7 +437,7 @@ class Project(object):
 
             for _, item in self.index_id.items():
                 progress.new_item('processed: ' + item.image_path())
-                QCoreApplication.processEvents()
+                # QCoreApplication.processEvents()
                 if item.exists():
                     continue
                 checksum = item.checksum()
@@ -450,7 +455,7 @@ class Project(object):
         for checksum, items in index_checksum.items():
             msg = 'processed: ' + checksum + ', '.join([s.image_name() for s in items])
             progress.new_item(msg)
-            QCoreApplication.processEvents()
+            # QCoreApplication.processEvents()
             if len(items) > 1:
                 index_remain = 0
                 for idx, item in enumerate(items):
@@ -463,71 +468,5 @@ class Project(object):
                     anno_merge(items[index_remain].annotation_path(), item.annotation_path())
                     self.remove_image(item.idx())
 
-    ## collect/distribute annotations from/to file locations
 
-    # def collect(self):
-    #     if self.annotationMgr is not None:
-    #         self.annotationMgr.save()
-    #     op = annotation_move_message('Collect annotations', 'Would you like to merge or overwrite annotations files in the project?')
-    #     if op != OP_CANCEL:
-    #         if len(self.index_id) > 0:
-    #             progress = ProgressDiag(len(self.index_id), 'Collecting images...')
-    #             progress.show()
-    #         for idx, item in self.index_id.items():
-    #             image_path = item.image_path()
-    #             anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
-    #             if op == OP_MERGE:
-    #                 anno_merge(item.annotation_path(), anno_path)
-    #             elif op == OP_OVERWRITE:
-    #                 if os.path.isfile(anno_path):
-    #                     shutil.copy(anno_path, item.annotation_path())
-    #             progress.new_item('Collected from: ' + anno_path)
-    #             self.set_status(idx, get_status(item.annotation_path()))
-
-    # def distribute(self):
-    #     if self.annotationMgr is not None:
-    #         self.annotationMgr.save()
-    #     op = annotation_move_message('Distribute annotations', 'Would you like to merge or overwrite annotations files next to the image files?')
-    #     if op != OP_CANCEL:
-    #         if len(self.index_id) > 0:
-    #             progress = ProgressDiag(len(self.index_id), 'Distributing images...')
-    #             progress.show()
-    #         for _, item in self.index_id.items():
-    #             image_path = item.image_path()
-    #             if os.path.isfile(image_path):
-    #                 anno_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
-    #                 if op == OP_MERGE:
-    #                     anno_merge(anno_path, item.annotation_path())
-    #                 elif op == OP_OVERWRITE:
-    #                     shutil.copy(item.annotation_path(), anno_path)
-    #                 progress.new_item('Distributed to: ' + anno_path)
-    #             else:
-    #                 progress.new_item('Image not found: ' + image_path)
-
-class ProgressDiag(QDialog):
-    def __init__(self, total, msg="", parent=None):
-        super().__init__(parent=parent)
-        self.ui = uic.loadUi('uis/importProgress.ui', baseinstance=self)
-        self.setWindowTitle(msg)
-        # self.setWindowModality(Qt.WindowModal)
-        self.setModal(True)
-        self.setWindowFlags(Qt.Dialog | Qt.Desktop)
-        self.progressBar.setValue(0)
-        self.count = 0
-        self.total = total
-    
-    def keyPressEvent(self, e):
-        if e.key() != Qt.Key_Escape:
-            super().keyPressEvent(e)
-    
-    def new_item(self, msg):
-        self.count += 1
-        self.fileList.addItem(msg)
-        self.fileList.setCurrentRow(self.fileList.count()-1)
-        if int(self.count*100/self.total) - self.progressBar.value() >= 1:
-            self.progressBar.setValue(self.count*100/self.total)
-        if self.count == self.total:
-            self.progressBar.setValue(100)
-            self.close() 
-        QCoreApplication.processEvents()
 

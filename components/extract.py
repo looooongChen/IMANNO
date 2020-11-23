@@ -18,11 +18,11 @@ IMAGE_FORMATS = [f[1:] for f in IMAGE_TYPES]
 
 
 #################################
-TP_MASK_SINGLE = "mask, single (.png, all objects in one image, may overlap)"
-TP_MASK_MULTI = "mask, multiple (.png, one mask for each object)"
-TP_BBX = "boundingbox (.xml, PASCAL VOC format)"
-TP_PATCH = "patches (.png)"
-TP_SKELETON = "skeleton (.png)"
+TP_MASK_SINGLE = "Mask-Single (.png): all objects in one image, may overlap"
+TP_MASK_MULTI = "Mask-Multiple (.png): one mask for each object"
+TP_BBX = "Bounding Box (.xml): PASCAL VOC format"
+TP_PATCH = "Patches (.png)"
+TP_SKELETON = "Skeleton (.png)"
 
 class AnnoExporter(QDialog):
     def __init__(self, config, project=None, parent=None):
@@ -117,13 +117,29 @@ class AnnoExporter(QDialog):
         text = str(text)
         self.valueProperty.setEnabled(False)
         self.valuePadding.setEnabled(False)
-        self.ckIgnoreEmpty.setEnabled(True)
-        self.ckIgnoreEmpty.setCheckState(Qt.Checked)
-        if text == TP_PATCH:
+        self.exportEmpty.setEnabled(True)
+        self.exportEmpty.setCheckState(Qt.Unchecked)
+        self.exportGt.setEnabled(False)
+        self.exportGt.setCheckState(Qt.Checked)
+        self.exportApproximate.setEnabled(False)
+        self.exportApproximate.setCheckState(Qt.Unchecked)
+        if text == TP_MASK_SINGLE or text == TP_MASK_MULTI:
+            self.valueProperty.setEnabled(False)
+            self.valuePadding.setEnabled(False)
+            self.exportApproximate.setEnabled(True)
+            self.exportApproximate.setCheckState(Qt.Unchecked)
+        elif text == TP_PATCH:
+            self.valueProperty.setEnabled(False)
             self.valuePadding.setEnabled(True)
-            self.ckIgnoreEmpty.setEnabled(False)
+            self.exportEmpty.setEnabled(False)
+            self.exportEmpty.setCheckState(Qt.Unchecked)
+            self.exportGt.setEnabled(True)
+            self.exportGt.setCheckState(Qt.Checked)
         elif text == TP_BBX:
             self.valueProperty.setEnabled(True)
+            self.valuePadding.setEnabled(False)
+        elif text == TP_SKELETON:
+            pass
 
     def export(self):
         self.progressBar.setValue(0)
@@ -131,7 +147,7 @@ class AnnoExporter(QDialog):
         save_dir = QFileDialog.getExistingDirectory(self, 'Select Directory')
         if len(save_dir) != 0:
             exportType = str(self.exportType.currentText())
-            ignore = self.ckIgnoreEmpty.checkState() == Qt.Checked
+            ignore = self.exportEmpty.checkState() == Qt.Checked
             now = datetime.now()
 
             if exportType == TP_MASK_SINGLE or exportType == TP_MASK_MULTI:

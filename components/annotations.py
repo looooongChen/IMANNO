@@ -6,6 +6,7 @@ import math
 
 from abc import abstractmethod
 from .enumDef import *
+from .labelManager import Property, Label
 
 
 ############################
@@ -29,23 +30,19 @@ class Annotation(object):
         self.timestamp = timestamp
         self.labelMgr = labelMgr
         self.labels = {}
-        if isinstance(obj, dict):
-            self.dataObject = obj
-            self.from_dataObject(obj)
-            self.parse_labels()
-        elif isinstance(obj, QGraphicsItem):
-            self.graphObject = obj
-            self.from_graphObject(obj)
+        self.dataObject = self.get_dataObject(obj)
+        self.graphObject = self.get_graphObject(self.dataObject)
+        self.parse_labels()
 
     def parse_labels(self):
         if 'labels' in self.dataObject.keys():
             for prop_name, label_name in self.dataObject['labels'].items():
-                self.labelMgr.assign(self, prop_name, label_name)
+                self.labelMgr.assign(self, prop_name, label_name, saved=True)
             self.dataObject['labels'] = {}
     
     def render_save(self):
         save_dict = self.dataObject.copy()
-        save_dict['labels'] = {label.property.name: label.name for label in self.labels}
+        save_dict['labels'] = {prop.name: label.name for prop, label in self.labels.items()}
         return save_dict
 
     def assign_label(self, prop_name, label_name):
@@ -54,18 +51,29 @@ class Annotation(object):
     def withdraw_label(self, prop_name, label_name):
         self.labelMgr.withdraw(self, prop_name, label_name)
 
+    def has(self, tag):
+        if isinstance(tag, Property):
+            return True if tag in self.labels.keys() else False
+        elif isinstance(tag, Label):
+            if tag.property not in self.labels.keys():
+                return False
+            else:
+                return True if self.labels[tag.property] is tag else False
+        else:
+            return False
+            
     @abstractmethod
-    def from_dataObject(self, dataObject):
+    def get_dataObject(self, dataObject):
         """
-        an abstract method to set and return the self.graphObject from the data object
-        Return: self.graphObject
+        an abstract method to get graphObject from a dataObject
+        Return: graphObject
         """
         pass
 
     @abstractmethod
-    def from_graphObject(self, graphObject):
+    def get_graphObject(self, graphObject):
         """
-        an abstract method to set and return the self.dataObject from the graph object,
+        an abstract method to dataObject from the graphObject/dataObject,
         Return: self.dataObject
         """
         pass
@@ -96,39 +104,45 @@ class DotAnnotation(Annotation):
                   'coords': [x, y]}
                 or QGraphicsPolygonItem  
         """
-        self.radius = 5
+        self.radius = 10
         super().__init__(timestamp, dot, labelMgr)
 
     def _star(self, center, R):
-        star = [QPointF(0,R), QPointF(R/3,R/3), QPointF(R,0), QPointF(R/3,-R/3), QPointF(0,-R), QPointF(-R/3,-R/3), QPointF(-R,0), QPointF(-R/3,R/3)]
+        star = [QPointF(0,R), QPointF(R/5,R/5), QPointF(R,0), QPointF(R/5,-R/5), QPointF(0,-R), QPointF(-R/5,-R/5), QPointF(-R,0), QPointF(-R/5,R/5)]
         star = [pt + QPointF(center[0], center[1]) for pt in star]
         star = QPolygonF(star)
         star = QGraphicsPolygonItem(star)
         return star
 
-    def from_dataObject(self, obj):
-        self.graphObject = self._star(obj['coords'], self.radius)
-        return self.graphObject
+    def get_graphObject(self, obj):
+        return self._star(obj['coords'], self.radius)
 
     def adjust_graphObject(self, radius):
         self.radius = radius
         self.graphObject = self._star(self.dataObject['coords'], self.radius)
         return self.graphObject
 
-    def from_graphObject(self, obj):
-        self.dataObject = {'timestamp': self.timestamp,  
-                           'type': DOT,  
-                           'labels': {},  
-                           'coords': [0, 0]}
-        center = obj.polygon().boundingRect().center()
-        self.dataObject['coords'] = [center.x(), center.y()]
-        return self.dataObject
+    def get_dataObject(self, obj):
+        if isinstance(obj, QGraphicsItem):
+            dataObject = {'timestamp': self.timestamp,  
+                          'type': DOT,  
+                          'labels': {},  
+                          'coords': [0, 0]}
+            center = obj.polygon().boundingRect().center()
+            dataObject['coords'] = [center.x(), center.y()]
+        else:
+            dataObject = obj
+        # normalization
+        dataObject['coords'] = [int(round(x)) for x in dataObject['coords']]
+        return dataObject
     
     @classmethod
     def dataObject_from_hdf5(cls, anno):
         dataObject = Annotation.dataObject_from_hdf5(anno)
         dataObject['type'] = DOT
         dataObject['coords'] = [anno['pt'][0], anno['pt'][1]]
+        # normalization
+        dataObject['coords'] = [int(round(x)) for x in dataObject['coords']]
         return dataObject
 
 class CurveAnnotation(Annotation):
@@ -146,27 +160,32 @@ class CurveAnnotation(Annotation):
         """
         super().__init__(timestamp, curve, labelMgr)
     
-    def from_dataObject(self, obj):
+    def get_graphObject(self, obj):
         curve = QPainterPath()
         curve.addPolygon(QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']]))
-        self.graphObject = QGraphicsPathItem(curve)
-        return self.graphObject
+        return QGraphicsPathItem(curve)
 
-    def from_graphObject(self, obj):
-        self.dataObject = {'timestamp': self.timestamp,  
-                           'type': CURVE,  
-                           'labels': {},  
-                           'coords': [],
-                           'bbx': [0,0,0,0]}
-        # add coords
-        curve = obj.path()
-        for i in range(curve.elementCount()):
-            pt = curve.elementAt(i)
-            self.dataObject['coords'].append([pt.x(), pt.y()])
-        # add bbx
-        bbx = curve.boundingRect()
-        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
-        return self.dataObject
+    def get_dataObject(self, obj):
+        if isinstance(obj, QGraphicsItem):
+            dataObject = {'timestamp': self.timestamp,  
+                          'type': CURVE,  
+                          'labels': {},  
+                          'coords': [],
+                          'bbx': [0,0,0,0]}
+            # add coords
+            curve = obj.path()
+            for i in range(curve.elementCount()):
+                pt = curve.elementAt(i)
+                dataObject['coords'].append([pt.x(), pt.y()])
+            # add bbx
+            bbx = curve.boundingRect()
+            dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        else:
+            dataObject = obj
+        # normalization
+        dataObject['coords'] = [[int(round(pt[0])), int(round(pt[1]))] for pt in dataObject['coords']]
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
+        return dataObject
     
     @classmethod
     def dataObject_from_hdf5(cls, anno):
@@ -175,6 +194,9 @@ class CurveAnnotation(Annotation):
         dataObject['bbx'] = list(anno['boundingBox'])
         xx, yy = anno['line'][:,0]+dataObject['bbx'][0], anno['line'][:,1]+dataObject['bbx'][1]
         dataObject['coords'] = [[x, y] for x,y in zip(xx, yy)]
+        # normalization
+        dataObject['coords'] = [[int(round(pt[0])), int(round(pt[1]))] for pt in dataObject['coords']]
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
         return dataObject
     
 
@@ -194,26 +216,31 @@ class PolygonAnnotation(Annotation):
         super().__init__(timestamp, polygon, labelMgr)
 
 
-    def from_dataObject(self, obj):
+    def get_graphObject(self, obj):
         polygon = QPolygonF([QPointF(pt[0], pt[1]) for pt in obj['coords']])
-        self.graphObject = QGraphicsPolygonItem(polygon)
-        return self.graphObject
+        return QGraphicsPolygonItem(polygon)
 
-    def from_graphObject(self, obj):
-        self.dataObject = {'timestamp': self.timestamp,  
-                           'type': POLYGON,  
-                           'labels': {},  
-                           'coords': [],
-                           'bbx': [0,0,0,0]}
-        # add coords
-        polygon = obj.polygon()
-        for i in range(polygon.count()):
-            pt = polygon[i]
-            self.dataObject['coords'].append([pt.x(), pt.y()])
-        # add bbx
-        bbx = polygon.boundingRect()
-        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
-        return self.dataObject
+    def get_dataObject(self, obj):
+        if isinstance(obj, QGraphicsItem):
+            dataObject = {'timestamp': self.timestamp,  
+                          'type': POLYGON,  
+                          'labels': {},  
+                          'coords': [],
+                          'bbx': [0,0,0,0]}
+            # add coords
+            polygon = obj.polygon()
+            for i in range(polygon.count()):
+                pt = polygon[i]
+                dataObject['coords'].append([pt.x(), pt.y()])
+            # add bbx
+            bbx = polygon.boundingRect()
+            dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        else:
+            dataObject = obj
+        # normalization
+        dataObject['coords'] = [[int(round(pt[0])), int(round(pt[1]))] for pt in dataObject['coords']]
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
+        return dataObject
     
     @classmethod
     def dataObject_from_hdf5(cls, anno):
@@ -222,6 +249,9 @@ class PolygonAnnotation(Annotation):
         dataObject['bbx'] = list(anno['boundingBox'])
         xx, yy = anno['polygon'][:,0]+dataObject['bbx'][0], anno['polygon'][:,1]+dataObject['bbx'][1]
         dataObject['coords'] = [[x, y] for x,y in zip(xx, yy)]
+        # normalization
+        dataObject['coords'] = [[int(round(pt[0])), int(round(pt[1]))] for pt in dataObject['coords']]
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
         return dataObject
    
 
@@ -239,28 +269,34 @@ class BBXAnnotation(Annotation):
         """
         super().__init__(timestamp, bbx, labelMgr)
 
-    def from_dataObject(self, obj):
+    def get_graphObject(self, obj):
         bbx = QRectF()
         bbx.setTopLeft(QPointF(obj['bbx'][0], obj['bbx'][1]))
         bbx.setSize(QSizeF(obj['bbx'][2], obj['bbx'][3]))
-        self.graphObject = QGraphicsRectItem(bbx)
-        return self.graphObject
+        return QGraphicsRectItem(bbx)
 
-    def from_graphObject(self, obj):
-        self.dataObject = {'timestamp': self.timestamp,  
-                           'type': BBX,  
-                           'labels': {},  
-                           'bbx': [0,0,0,0]}
-        # add bbx
-        bbx = obj.rect()
-        self.dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
-        return self.dataObject
+    def get_dataObject(self, obj):
+        if isinstance(obj, QGraphicsItem):
+            dataObject = {'timestamp': self.timestamp,  
+                          'type': BBX,  
+                          'labels': {},  
+                          'bbx': [0,0,0,0]}
+            # add bbx
+            bbx = obj.rect()
+            dataObject['bbx'] = [bbx.x(), bbx.y(), bbx.width(), bbx.height()]
+        else:
+            dataObject = obj
+        # normalization
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
+        return dataObject
     
     @classmethod
     def dataObject_from_hdf5(cls, anno):
         dataObject = Annotation.dataObject_from_hdf5(anno)
         dataObject['type'] = BBX
         dataObject['bbx'] = list(anno['boundingBox'])
+        # normalization
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
         return dataObject
 
 
@@ -280,54 +316,64 @@ class EllipseAnnotation(Annotation):
         """
         super().__init__(timestamp, ellipse, labelMgr)
 
-    def from_dataObject(self, obj):
+    def get_graphObject(self, obj):
         bbx = QRectF()
         # add ellipse
         axis_major, axis_minor = obj['axis'][0], obj['axis'][1]
-        # bbx.setTopLeft(QPointF(-1 * axis_minor / 2, -1 * axis_major / 2))
-        # bbx.setSize(QSizeF(axis_minor, axis_major))
         bbx.setTopLeft(QPointF(-1 * axis_major / 2, -1 * axis_minor / 2))
         bbx.setSize(QSizeF(axis_major, axis_minor))
-        self.graphObject = QGraphicsEllipseItem(bbx)
+        graphObject = QGraphicsEllipseItem(bbx)
         # transfrom
         t = QTransform()
-        # t.rotate(-1 * obj['angle'] + 90)
-        t.rotate(-1 * obj['angle'])
         t.translate(obj['coords'][0], obj['coords'][1])
-        self.graphObject.setTransform(t)
+        t.rotate(-1 * obj['angle'])
+        graphObject.setTransform(t)
 
-        return self.graphObject
+        return graphObject
 
 
-    def from_graphObject(self, obj):
-        self.dataObject = {'timestamp': self.timestamp,  
-                           'type': ELLIPSE,  
-                           'labels': {},  
-                           'coords': [0, 0],  
-                           'angle': 0,  
-                           'axis': [0, 0],
-                           'bbx': [0, 0, 0, 0]}
-        t = obj.transform()
-        self.dataObject['coords'] = [t.m31(), t.m32()] 
-        self.dataObject['angle'] = math.degrees(math.acos(t.m11()))
-        self.dataObject['axis'] = [obj.rect().x(), obj.rect().y()]
-        a, b = self.dataObject['axis'][0]/2, self.dataObject['axis'][1]/2
-        c, s = math.cos(math.radians(-self.dataObject['angle'])), math.sin(math.radians(-self.dataObject['angle']))
-        X, Y = math.sqrt((a*c)**2+(b*s)**2), math.sqrt((a*s)**2+(b*c)**2) 
-        self.dataObject['bbx'] = [t.m31()-X, t.m33()-Y, 2*X, 2*Y]
-        return self.dataObject
+    def get_dataObject(self, obj):
+        if isinstance(obj, QGraphicsItem):
+            dataObject = {'timestamp': self.timestamp,  
+                          'type': ELLIPSE,  
+                          'labels': {},  
+                          'coords': [0, 0],  
+                          'angle': 0,  
+                          'axis': [0, 0],
+                          'bbx': [0, 0, 0, 0]}
+            t = obj.transform()
+            dataObject['coords'] = [t.m31(), t.m32()] 
+            dataObject['angle'] = math.degrees(math.acos(t.m11()))
+            dataObject['axis'] = [obj.rect().x(), obj.rect().y()]
+            a, b = dataObject['axis'][0]/2, dataObject['axis'][1]/2
+            c, s = math.cos(math.radians(-dataObject['angle'])), math.sin(math.radians(-dataObject['angle']))
+            X, Y = math.sqrt((a*c)**2+(b*s)**2), math.sqrt((a*s)**2+(b*c)**2) 
+            dataObject['bbx'] = [t.m31()-X, t.m33()-Y, 2*X, 2*Y]
+        else:
+            dataObject = obj
+        # normalization
+        dataObject['coords'] = [int(round(x)) for x in dataObject['coords']]
+        dataObject['angle'] = int(round(dataObject['angle']))
+        dataObject['axis'] = [int(round(x)) for x in dataObject['axis']]
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
+        return dataObject
     
     @classmethod
     def dataObject_from_hdf5(cls, anno):
         dataObject = Annotation.dataObject_from_hdf5(anno)
         dataObject['type'] = ELLIPSE
         dataObject['coords'] = list(anno['center'])
-        dataObject['angle'] = anno['angle'].value
+        dataObject['angle'] = anno['angle'][0]
         dataObject['axis'] = list(anno['axis'])
         a, b = dataObject['axis'][0]/2, dataObject['axis'][1]/2
         c, s = math.cos(math.radians(-dataObject['angle'])), math.sin(math.radians(-dataObject['angle']))
         X, Y = math.sqrt((a*c)**2+(b*s)**2), math.sqrt((a*s)**2+(b*c)**2) 
         dataObject['bbx'] = [dataObject['coords'][0]-X, dataObject['coords'][1]-Y, 2*X, 2*Y]
-        
+        # normalization
+        dataObject['coords'] = [int(round(x)) for x in dataObject['coords']]
+        dataObject['angle'] = int(round(dataObject['angle']))
+        dataObject['axis'] = [int(round(x)) for x in dataObject['axis']]
+        dataObject['bbx'] = [int(round(x)) for x in dataObject['bbx']]
+    
         return dataObject
     
