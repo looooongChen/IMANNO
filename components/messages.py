@@ -22,14 +22,16 @@ class ProgressDiag(QDialog):
     
     def new_item(self, msg):
         self.count += 1
-        self.fileList.addItem(msg)
-        self.fileList.setCurrentRow(self.fileList.count()-1)
+        # self.fileList.addItem(msg)
+        # self.fileList.setCurrentRow(self.fileList.count()-1)
         if int(self.count*100/self.total) - self.progressBar.value() >= 1:
             self.progressBar.setValue(self.count*100/self.total)
+        self.status.setText(msg)
         if self.count == self.total:
             self.progressBar.setValue(100)
             self.close() 
         QCoreApplication.processEvents()
+    
 
 def open_message(title, msg):
     msgBox = QMessageBox()

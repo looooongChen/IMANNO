@@ -37,6 +37,7 @@ DELETE = 21
 RENAME = 22
 IMPORT = 23
 SEARCH = 24
+CLEAR = 25
 
 OP_MERGE = 30
 OP_OVERWRITE = 31
@@ -59,6 +60,7 @@ ICONS[IMPORT] = os.path.join(icon_path, 'import_image.png')
 ICONS[SEARCH] = os.path.join(icon_path, 'search.png')
 ICONS[NEW] = os.path.join(icon_path, 'new.png')
 ICONS[LABEL] = os.path.join(icon_path, 'label.png')
+ICONS[CLEAR] = os.path.join(icon_path, 'clear.png')
 
 LABEL_COLORS = {'red':'#ec524b',
                 'orange': '#ffa62b',

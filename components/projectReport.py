@@ -26,7 +26,7 @@ class ProjectReport(QDialog):
         self.report.addTopLevelItem(img_count)
         obj_count = QTreeWidgetItem(['Objects Number: ', str(total)])
         self.report.addTopLevelItem(obj_count)
-        for k, v in stats.items():
+        for k, _ in stats.items():
             prop = QTreeWidgetItem([k.title(), ''])
             self.report.addTopLevelItem(prop)
             for kk, vv in stats[k].items():

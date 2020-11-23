@@ -33,16 +33,22 @@ class LabelDispDock(QDockWidget):
         self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
 
         self.labelMenu = QMenu(self)
+        self.actionLoadDefault = self.labelMenu.addAction('Load Default')
         self.actionNewProperty = self.labelMenu.addAction(QIcon(ICONS[NEW]), 'New Property')
         self.actionNewLabel = self.labelMenu.addAction(QIcon(ICONS[LABEL]), 'New Label')
         self.actionRename = self.labelMenu.addAction(QIcon(ICONS[RENAME]), 'Rename')
         self.actionRemove = self.labelMenu.addAction(QIcon(ICONS[DELETE]), 'Remove')
+        self.actionClear = self.labelMenu.addAction(QIcon(ICONS[CLEAR]), 'Clear')
+        self.actionSetDefault = self.labelMenu.addAction('Set As Default')
         self.labelList.customContextMenuRequested.connect(self.show_label_menu)
         
+        self.actionLoadDefault.triggered.connect(self.load_default_labels)
+        self.actionSetDefault.triggered.connect(self.save_default_labels)
         self.actionNewProperty.triggered.connect(self.new_property)
         self.actionNewLabel.triggered.connect(self.new_label)
         self.actionRename.triggered.connect(lambda : self.rename_label(None))
         self.actionRemove.triggered.connect(lambda : self.remove_label(None))
+        self.actionClear.triggered.connect(self.labelList.clear)
         self.labelList.itemChanged.connect(self.on_labelItem_change, Qt.QueuedConnection)
         self.labelList.itemDoubleClicked.connect(self.assign_label)
         # annotation disp setup
