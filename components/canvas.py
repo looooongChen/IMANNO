@@ -248,7 +248,7 @@ class Canvas(QGraphicsScene):
         anno = self.annotationMgr.get_annotation_by_graphItem(item)
         if not event.modifiers() & Qt.ControlModifier:
             self.selected.clear()
-        if item is not self.bgPixmap and item not in self.selected:
+        if anno is not None and item is not self.bgPixmap and item not in self.selected:
             self.selected.append(anno)
             self.signalAnnotationSelected.emit(anno)
         else:

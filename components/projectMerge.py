@@ -34,8 +34,6 @@ class ProjectMerger(QDialog):
         self.dstOpenButton.clicked.connect(lambda : self.open_project(fileList='dst'))
         self.srcSelectButton.clicked.connect(lambda : self.select(True, 'src'))
         self.srcUnselectButton.clicked.connect(lambda : self.select(False, 'src'))
-        # self.dstSelectButton.clicked.connect(lambda : self.select(True, 'dst'))
-        # self.dstUnselectButton.clicked.connect(lambda : self.select(False, 'dst'))
         self.btnMerge.clicked.connect(lambda : self.run(mode='merge'))
         self.btnOverwrite.clicked.connect(lambda : self.run(mode='overwrite'))
 
@@ -75,7 +73,7 @@ class ProjectMerger(QDialog):
             folders = {}
             for f in sorted(project.data['folders']):
                 folder = FolderTreeItem(f)
-                folder.set_icon(self.config['icons'][FOLDER])
+                folder.set_icon(self.config.icons[FOLDER])
                 if fileList == 'src':
                     folder.setCheckState(0, Qt.Unchecked)
                 fileListWidget.addTopLevelItem(folder)
@@ -89,7 +87,7 @@ class ProjectMerger(QDialog):
                 status = file_item.status()
                 item = ImageTreeItem(status=status,
                                      path=file_item.image_path(), idx=file_item.idx())
-                item.set_icon(self.config['icons'][status])
+                item.set_icon(self.config.icons[status])
                 if fileList == 'src':
                     item.setCheckState(0, Qt.Unchecked)
                 folder_name = file_item.folder()

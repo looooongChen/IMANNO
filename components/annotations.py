@@ -69,16 +69,7 @@ class Annotation(object):
             self.highlighted = status
             self.sync_disp()
 
-    def sync_disp(self, config=None):
-        if config is None:
-            config = self.config
-        else:
-            self.config = config
-
-        width, alpha = config['PenWidth'], config['BrushAlpha']
-        if self.highlighted:
-            width += config['HighlightIncrWidth'] 
-            alpha += config['HighlightIncrAlpha']
+    def _color(self, config):
 
         if config.disp == SHOW_ALL:
             color = QColor(DEFAULT_COLOR)
@@ -90,9 +81,25 @@ class Annotation(object):
         else:
             color = QColor(SHADOW_COLOR)
 
-        color.setAlpha(255)
-        pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-        color.setAlpha(alpha)
+        return color
+
+    def sync_disp(self, config=None):
+        if config is None:
+            config = self.config
+        else:
+            self.config = config
+        # set appearance
+        alpah_pen = 255
+        width_pen, alpha_brush = config['PenWidth'], config['BrushAlpha']
+        if self.highlighted:
+            width_pen += config['HighlightIncrWidth'] 
+            alpha_brush += config['HighlightIncrAlpha']
+        if config.disp == HIDE_ALL:
+            alpah_pen, alpha_brush = 0, 0
+        color = self._color(config)
+        color.setAlpha(alpah_pen)
+        pen = QPen(color, width_pen, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        color.setAlpha(alpha_brush)
         brush = QBrush(color, Qt.SolidPattern)
         self.graphObject.setPen(pen)
         self.graphObject.setBrush(brush)
@@ -165,21 +172,12 @@ class DotAnnotation(Annotation):
         t = QTransform(s,0,0,0,s,0,t1-s*t1, t2-s*t2, 1)
         self.graphObject.setTransform(t)
         # set appearance
+        alpah = 255
         width = config['PenWidth']
         if self.highlighted:
             width += config['HighlightIncrWidth']
-
-        if config.disp == SHOW_ALL:
-            color = QColor(DEFAULT_COLOR)
-        elif config.disp == HIDE_ALL:
-            color = QColor('#000000')
-        elif config.disp in self.labels.keys():
-            color = self.labels[config.disp].color
-            color = QColor(color[0], color[1], color[2])
-        else:
-            color = QColor(SHADOW_COLOR)
-
-        color.setAlpha(255)
+        color = self._color(config)
+        color.setAlpha(alpah)
         pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.MiterJoin)
         brush = QBrush(color, Qt.SolidPattern)
         self.graphObject.setPen(pen)
@@ -230,24 +228,15 @@ class CurveAnnotation(Annotation):
             config = self.config
         else:
             self.config = config
-
-        width = config['CurveAnnotationWidth']
+        # set appearance
+        alpah_pen = 255
+        width_pen, alpha_brush = config['CurveAnnotationWidth'], 0
         if self.highlighted:
-            width += config['HighlightIncrWidth'] 
-
-        if config.disp == SHOW_ALL:
-            color = QColor(DEFAULT_COLOR)
-        elif config.disp == HIDE_ALL:
-            color = QColor('#000000')
-        elif config.disp in self.labels.keys():
-            color = self.labels[config.disp].color
-            color = QColor(color[0], color[1], color[2])
-        else:
-            color = QColor(SHADOW_COLOR)
-
-        color.setAlpha(255)
-        pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-        color = QColor(0,0,0,0)
+            width_pen += config['HighlightIncrWidth'] 
+        color = self._color(config)
+        color.setAlpha(alpah_pen)
+        pen = QPen(color, width_pen, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        color.setAlpha(alpha_brush)
         brush = QBrush(color, Qt.SolidPattern)
         self.graphObject.setPen(pen)
         self.graphObject.setBrush(brush)
