@@ -1,24 +1,31 @@
 import json
 import os
 from .enumDef import *
-
-save_config = ['fileDirectory', 'defaultLabelListDir', 'DotAnnotationRadius', 'CurveAnnotationWidth', 'minPolygonArea', 'minBBXLength', 'minEllipseAxis', 'minCurveLength']
+from PyQt5.QtGui import QIcon 
 
 class Config(dict):
 
     def __init__(self, path):
         self['fileDirectory'] = './'
-        self['defaultLabelListDir'] = './config'
+        self['configDirectory'] = './config'
+
         self['DotAnnotationRadius'] = 10
-        self['CurveAnnotationWidth'] = 2
-        self['minPolygonArea'] = 10
-        self['minBBXLength'] = 5
-        self['minEllipseAxis'] = 5
-        self['minCurveLength'] = 5
+        self['CurveAnnotationWidth'] = 3
+        self['MinPolygonArea'] = 10
+        self['MinBBXLength'] = 5
+        self['MinEllipseAxis'] = 5
+        self['MinCurveLength'] = 5
+
+        self['PenWidth'] = 1
+        self['PenAlpha'] = 255
+        self['BrushAlpha'] = 120
+        self['HighlightIncrAlpha'] = 50
+        self['HighlightIncrWidth'] = 1
 
         self.saved = True
         self.disp = SHOW_ALL
         self.pre_disp = SHOW_ALL
+        self.icons = {k: QIcon(p) for k, p in ICONS.items()}
         
         self.path = path
         if not os.path.exists(os.path.dirname(path)):
@@ -29,8 +36,8 @@ class Config(dict):
                     self[k] = value
 
     def save(self):
-        save_dict = {}
-        for k in save_config:
-            save_dict[k] = self[k]
+        # save_dict = {}
+        # for k in save_config:
+        #     save_dict[k] = self[k]
         with open(self.path, 'w') as f:
-            json.dump(save_dict, f)
+            json.dump(self, f, indent=2)

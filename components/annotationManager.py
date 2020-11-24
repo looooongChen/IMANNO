@@ -121,7 +121,7 @@ class AnnotationManager(Table):
     #########################
 
     def save(self, inquiry=True):
-        if not self.config.saved:
+        if not self.config.saved and self.annotation_path is not None:
             save = QMessageBox.Yes == QMessageBox.question(None, "Important...", "Would you like to save the changes in your annotations?", QMessageBox.Yes | QMessageBox.No) if inquiry else True
             if save and self.annotation_path is not None:
                 self.save_to_file(self.annotation_path)
@@ -197,8 +197,6 @@ class AnnotationManager(Table):
                         annotation = self._load_annotation(anno)
                         if annotation is not None:
                             self.add_annotation(annotation, graphItem)
-
-            print('Annotation loaded:', annotation_path)
 
     def _load_annotation(self, anno, mode='json'):
 

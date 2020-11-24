@@ -29,6 +29,8 @@ class Annotation(object):
         '''
         self.timestamp = timestamp
         self.labelMgr = labelMgr
+        self.highlighted = False
+        self.config = None
         self.labels = {}
         self.dataObject = self._dataObject(obj)
         self.graphObject = self._graphObject(self.dataObject)
@@ -61,21 +63,40 @@ class Annotation(object):
                 return True if self.labels[tag.property] is tag else False
         else:
             return False
+        
+    def highlight(self, status):
+        if self.highlighted != status:
+            self.highlighted = status
+            self.sync_disp()
 
-    def sync_disp(self, config):
-        channel = config.disp
-        if channel == SHOW_ALL:
-            pen, brush = LINE_PEN['normal'], AREA_BRUSH['normal']
-        elif channel == HIDE_ALL:
-            pen, brush = LINE_PEN['hide'], AREA_BRUSH['hide']
-        elif channel in self.labels.keys():
-            color = self.labels[channel].color
-            pen = QPen(QColor(color[0], color[1], color[2], PEN_ALPHA), 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-            brush = QBrush(QColor(color[0], color[1], color[2], BRUSH_ALPHA))
+    def sync_disp(self, config=None):
+        if config is None:
+            config = self.config
         else:
-            pen, brush = LINE_PEN['shadow'], AREA_BRUSH['shadow']
+            self.config = config
+
+        width, alpha = config['PenWidth'], config['BrushAlpha']
+        if self.highlighted:
+            width += config['HighlightIncrWidth'] 
+            alpha += config['HighlightIncrAlpha']
+
+        if config.disp == SHOW_ALL:
+            color = QColor(DEFAULT_COLOR)
+        elif config.disp == HIDE_ALL:
+            color = QColor('#000000')
+        elif config.disp in self.labels.keys():
+            color = self.labels[config.disp].color
+            color = QColor(color[0], color[1], color[2])
+        else:
+            color = QColor(SHADOW_COLOR)
+
+        color.setAlpha(255)
+        pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        color.setAlpha(alpha)
+        brush = QBrush(color, Qt.SolidPattern)
         self.graphObject.setPen(pen)
         self.graphObject.setBrush(brush)
+
         return self.graphObject
         
     @abstractmethod
@@ -107,7 +128,6 @@ class Annotation(object):
         return dataObject
 
 
-
 class DotAnnotation(Annotation):
 
     def __init__(self, timestamp, dot, labelMgr):
@@ -120,11 +140,11 @@ class DotAnnotation(Annotation):
                   'coords': [x, y]}
                 or QGraphicsPolygonItem  
         """
-        self.radius = 1
+        self.radius = 10
         super().__init__(timestamp, dot, labelMgr)
 
     def _star(self, center, R):
-        star = [QPointF(0,R), QPointF(R/6,R/6), QPointF(R,0), QPointF(R/6,-R/6), QPointF(0,-R), QPointF(-R/6,-R/6), QPointF(-R,0), QPointF(-R/6,R/6)]
+        star = [QPointF(0,R), QPointF(R/6,R/6), QPointF(R,0), QPointF(R/6,-R/6), QPointF(0,-R), QPointF(-R/6,-R/6), QPointF(-R,0), QPointF(-R/6,R/6), QPointF(0,R)]
         star = [pt + QPointF(center[0], center[1]) for pt in star]
         star = QPolygonF(star)
         star = QGraphicsPolygonItem(star)
@@ -133,14 +153,36 @@ class DotAnnotation(Annotation):
     def _graphObject(self, obj):
         return self._star(obj['coords'], self.radius)
 
-    def sync_disp(self, config):
-        super().sync_disp(config)
+    def sync_disp(self, config=None):
+        if config is None:
+            config = self.config
+        else:
+            self.config = config
+        # set transfrom
         self.graphObject.resetTransform()
         s = config['DotAnnotationRadius']/self.radius
         t1, t2 = self.dataObject['coords'][0], self.dataObject['coords'][1]
         t = QTransform(s,0,0,0,s,0,t1-s*t1, t2-s*t2, 1)
         self.graphObject.setTransform(t)
-        brush = QBrush(self.graphObject.pen().color())
+        # set appearance
+        width = config['PenWidth']
+        if self.highlighted:
+            width += config['HighlightIncrWidth']
+
+        if config.disp == SHOW_ALL:
+            color = QColor(DEFAULT_COLOR)
+        elif config.disp == HIDE_ALL:
+            color = QColor('#000000')
+        elif config.disp in self.labels.keys():
+            color = self.labels[config.disp].color
+            color = QColor(color[0], color[1], color[2])
+        else:
+            color = QColor(SHADOW_COLOR)
+
+        color.setAlpha(255)
+        pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.MiterJoin)
+        brush = QBrush(color, Qt.SolidPattern)
+        self.graphObject.setPen(pen)
         self.graphObject.setBrush(brush)
 
         return self.graphObject
@@ -183,12 +225,32 @@ class CurveAnnotation(Annotation):
         """
         super().__init__(timestamp, curve, labelMgr)
 
-    def sync_disp(self, config):
-        super().sync_disp(config)
-        pen = self.graphObject.pen()
-        pen.setWidth(config['CurveAnnotationWidth'])
+    def sync_disp(self, config=None):
+        if config is None:
+            config = self.config
+        else:
+            self.config = config
+
+        width = config['CurveAnnotationWidth']
+        if self.highlighted:
+            width += config['HighlightIncrWidth'] 
+
+        if config.disp == SHOW_ALL:
+            color = QColor(DEFAULT_COLOR)
+        elif config.disp == HIDE_ALL:
+            color = QColor('#000000')
+        elif config.disp in self.labels.keys():
+            color = self.labels[config.disp].color
+            color = QColor(color[0], color[1], color[2])
+        else:
+            color = QColor(SHADOW_COLOR)
+
+        color.setAlpha(255)
+        pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        color = QColor(0,0,0,0)
+        brush = QBrush(color, Qt.SolidPattern)
         self.graphObject.setPen(pen)
-        self.graphObject.setBrush(AREA_BRUSH['hide'])
+        self.graphObject.setBrush(brush)
         return self.graphObject
     
     def _graphObject(self, obj):

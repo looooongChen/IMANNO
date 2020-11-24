@@ -111,7 +111,7 @@ class CurvePainter(BaseToolClass):
             # approximation of the original polygon
             poly = np.ndarray(shape=(self.line.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, False))
-            minLength = self.annotationMgr.config['minCurveLength']
+            minLength = self.annotationMgr.config['MinCurveLength']
             if cv2.arcLength(poly_appx, False) < minLength:
                 print('WARN: Curve Too Short :(')
             else:
@@ -160,7 +160,7 @@ class PolygonPainter(BaseToolClass):
             # compute a approximation of the original polygon
             poly = np.ndarray(shape=(self.polygon.size(), 2), dtype=np.float64, buffer=vptr)
             poly_appx = np.squeeze(cv2.approxPolyDP(np.float32(poly), .7, True))
-            minArea = self.annotationMgr.config['minPolygonArea']
+            minArea = self.annotationMgr.config['MinPolygonArea']
             if poly_appx.shape[0] < 3:
                 print('WARN: Polygon Too Short :(')
             elif cv2.contourArea(poly_appx) < minArea:
@@ -247,7 +247,7 @@ class BBXPainter(BaseToolClass):
         return QPointF(x, y), QSizeF(w, h)
 
     def process(self):
-        minLength = self.annotationMgr.config['minBBXLength']
+        minLength = self.annotationMgr.config['MinBBXLength']
         if self.bbx.width() < minLength or self.bbx.height() < minLength:
             print('WARN: Bounding Box Too Small :(')
         else:
@@ -325,7 +325,7 @@ class EllipsePainter(BaseToolClass):
 
 
     def process(self):
-        minAxis = self.annotationMgr.config['minEllipseAxis']
+        minAxis = self.annotationMgr.config['MinEllipseAxis']
         if self.h < minAxis or self.h * self.w_ratio < minAxis:
             print('WARN: Ellipse Too Small :(')
         else:

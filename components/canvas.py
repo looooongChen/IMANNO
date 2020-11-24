@@ -35,7 +35,7 @@ class Canvas(QGraphicsScene):
         self.livewire = Livewire()
         self.livewire.set_image(image)
         # run-time status
-        self.selectedItems = []
+        self.selected = []
         self.tool = BROWSE
         self.drawing = False
         self.currentCommand = None
@@ -50,7 +50,7 @@ class Canvas(QGraphicsScene):
         for item in self.items():
             if item != self.bgPixmap:
                 self.removeItem(item)
-        self.selectedItems.clear()
+        self.selected.clear()
 
     ###############################
     #### graph item management ####
@@ -58,9 +58,8 @@ class Canvas(QGraphicsScene):
 
     def add_item(self, anno):
         graphObj = anno.graphObject
-        graphObj.setPen(LINE_PEN['normal'])
-        graphObj.setBrush(AREA_BRUSH['normal'])
         self.addItem(graphObj)
+        anno.sync_disp(self.config)
 
     def remove_item(self, anno):
         self.removeItem(anno.graphObject)
@@ -71,12 +70,11 @@ class Canvas(QGraphicsScene):
     #         self.add_item(annotation)
 
     def assign_selected_items(self, label):
-        for item in self.selectedItems:
-            anno = self.annotationMgr.get_annotation_by_graphItem(item)
+        for anno in self.selected:
             label.assign(anno)
             anno.sync_disp(self.config)
-        if len(self.selectedItems) > 0:
-            anno = self.annotationMgr.get_annotation_by_graphItem(self.selectedItems[-1])
+        if len(self.selected) > 0:
+            anno = self.selected[-1]
             self.signalAnnotationSelected.emit(anno)
 
     #########################
@@ -120,8 +118,8 @@ class Canvas(QGraphicsScene):
 
     def sync_disp(self):
         for _, anno in self.annotationMgr.items():
+            # print('sss', anno.labels)
             anno.sync_disp(self.config)
-        self.highlight_items(self.selectedItems)
     
     def set_tool(self, tool, paras=None):
         self.tool = tool
@@ -135,33 +133,9 @@ class Canvas(QGraphicsScene):
     #### display relavant methods ####
     ##################################
 
-
-    def highlight(self, item, mode='highlight'):
-        if mode == "highlight":
-            d1, d2 = 1, 100
-        elif mode == "restore":
-            d1, d2 = -1, -100
-        
-        pen = item.pen()
-        if pen:
-            pen.setWidth(pen.width() + d1)
-            item.setPen(pen)
-
-        brush = item.brush()
-        if brush:
-            
-            color = brush.color()
-            if isinstance(item, QGraphicsPathItem):
-                color.setAlpha(0)
-            else:    
-                color.setAlpha(color.alpha() + d2)
-            brush.setColor(color)
-            # brush.setStyle(Qt.SolidPattern)
-            item.setBrush(brush)
-
-    def highlight_items(self, item_list, mode='highlight'):
-        for item in item_list:
-            self.highlight(item, mode)
+    def highlight_selected_items(self, status):
+        for item in self.selected:
+            item.highlight(status)
 
     ###########################################
     #### mouse and keyboard event handling ####
@@ -268,33 +242,30 @@ class Canvas(QGraphicsScene):
                 self.currentCommand.expand()
 
     def selectItem(self, event):
+        self.highlight_selected_items(False)
+
         item = self.itemAt(event.scenePos(), QTransform())
-
-        for selected in self.selectedItems:
-            self.highlight(selected, 'restore')
-
+        anno = self.annotationMgr.get_annotation_by_graphItem(item)
         if not event.modifiers() & Qt.ControlModifier:
-            self.selectedItems.clear()
-        if item is not self.bgPixmap and item not in self.selectedItems:
-            self.selectedItems.append(item)
-            anno = self.annotationMgr.get_annotation_by_graphItem(item)
-            if anno is not None:
-                self.signalAnnotationSelected.emit(anno)
+            self.selected.clear()
+        if item is not self.bgPixmap and item not in self.selected:
+            self.selected.append(anno)
+            self.signalAnnotationSelected.emit(anno)
         else:
             self.signalAnnotationReleased.emit()
-            self.selectedItems.clear()
+            self.selected.clear()
 
-        self.highlight_items(self.selectedItems)
+        self.highlight_selected_items(True)
 
     def deleteItem(self):
         if self.drawing:
             self.cancel_operation()
             self.drawing
         else:
-            for item in self.selectedItems:
-                self.annotationMgr.remove_annotation_by_graphItem(item)
+            for item in self.selected:
+                self.annotationMgr.remove_annotation(item)
                 self.signalAnnotationReleased.emit()
-            self.selectedItems.clear()
+            self.selected.clear()
 
 
 class View(QGraphicsView):

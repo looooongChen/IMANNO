@@ -1,4 +1,3 @@
-from PyQt5.QtGui import QPen, QBrush, QColor
 from PyQt5.QtCore import Qt
 
 UNFINISHED = 'unfinished'
@@ -39,11 +38,13 @@ IMPORT = 23
 SEARCH = 24
 CLEAR = 25
 
-OP_MERGE = 30
-OP_OVERWRITE = 31
-OP_CANCEL = 32
-OP_IMPORT = 33
-OP_CLOSEANDOPEN = 34
+SYM_WARNING = 30
+
+OP_MERGE = 100
+OP_OVERWRITE = 101
+OP_CANCEL = 102
+OP_IMPORT = 103
+OP_CLOSEANDOPEN = 104
 
 # from PyQt5.QtGui import QIcon
 import os
@@ -53,18 +54,22 @@ ICONS[UNFINISHED] = os.path.join(icon_path, 'unfinished.png')
 ICONS[FINISHED] = os.path.join(icon_path, 'finished.png')
 ICONS[CONFIRMED] = os.path.join(icon_path, 'confirmed.png')
 ICONS[PROBLEM] = os.path.join(icon_path, 'problem.png')
+
 ICONS[FOLDER] = os.path.join(icon_path, 'folder.png')
+ICONS[LABEL] = os.path.join(icon_path, 'label.png')
+
+ICONS[NEW] = os.path.join(icon_path, 'new.png')
 ICONS[DELETE] = os.path.join(icon_path, 'delete.png')
 ICONS[RENAME] = os.path.join(icon_path, 'rename.png')
 ICONS[IMPORT] = os.path.join(icon_path, 'import_image.png')
 ICONS[SEARCH] = os.path.join(icon_path, 'search.png')
-ICONS[NEW] = os.path.join(icon_path, 'new.png')
-ICONS[LABEL] = os.path.join(icon_path, 'label.png')
 ICONS[CLEAR] = os.path.join(icon_path, 'clear.png')
 
+ICONS[SYM_WARNING] = os.path.join(icon_path, 'warning.png')
 
-PEN_ALPHA = 255
-BRUSH_ALPHA = 150
+
+DEFAULT_COLOR = '#00cc00'
+SHADOW_COLOR = '#000000'
 
 LABEL_COLORS = {'red':'#ec524b',
                 'orange': '#ffa62b',
@@ -74,9 +79,3 @@ LABEL_COLORS = {'red':'#ec524b',
                 'blue': '#3282b8',
                 'violet': '#6a2c70',
                 'magenta': '#db75c5'}
-DRAWING_COLORS = {'normal': [QColor(0, 200, 0, PEN_ALPHA), QColor(0, 200, 0, BRUSH_ALPHA)],
-                  'hide': [QColor(0, 0, 0, 0), QColor(0, 0, 0, 0)],
-                  'shadow': [QColor(0, 0, 0, PEN_ALPHA), QColor(0, 0, 0, BRUSH_ALPHA)]}
-
-LINE_PEN = {k: QPen(c[0], 0, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin) for k, c in DRAWING_COLORS.items()}
-AREA_BRUSH = {k: QBrush(c[1]) for k, c in DRAWING_COLORS.items()}

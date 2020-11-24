@@ -43,8 +43,7 @@ class MainWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.ui = uic.loadUi('uis/mainWindow.ui', baseinstance=self)
         self.setWindowTitle('Image Annotations Toolkit by LfB, RWTH Aachen University')
-        self.config = Config('./config/config.cfg')
-        self.config['icons'] = {k: QIcon(p) for k, p in ICONS.items()}
+        self.config = Config('./config/config.json')
         # appearance
         self.font = QFont("Times", pointSize=10)
         self.setFont(self.font)
@@ -327,9 +326,10 @@ class MainWindow(QMainWindow):
     #### project related methods
 
     def project_search_images(self):
-        folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
-        self.project.search_image(folder)
-        self.fileList.init_list(self.project.index_id.keys(), mode='project')
+        if self.project.is_open():
+            folder = QFileDialog.getExistingDirectory(self, 'Select Directory')
+            self.project.search_image(folder)
+            self.fileList.init_list(self.project.index_id.keys(), mode='project')
     
     def project_remove_duplicate(self):
         if self.project.is_open():
@@ -349,7 +349,6 @@ class MainWindow(QMainWindow):
         projectMerger.exec()
         del projectMerger
 
-    
     def collect_distribute_annotations(self):
         # save project
         self.project.save()
@@ -367,15 +366,15 @@ class MainWindow(QMainWindow):
             self.open_project(path)
 
     def project_report(self):
-        # save project
-        self.project.save()
-        self.annotationMgr.save()
-        # counting 
-        report = ProjectReport(self.config)
-        report.init_table(self.project)
-        report.exec()
-        del report
-
+        if self.project.is_open():
+            # save project
+            self.project.save()
+            self.annotationMgr.save()
+            # counting 
+            report = ProjectReport(self.config)
+            report.init_table(self.project)
+            report.exec()
+            del report
 
     def project_close(self):
         self.fileList.close_project()

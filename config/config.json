@@ -1,0 +1,15 @@
+{
+  "fileDirectory": "E:\\Datasets\\PheNeSensCyst",
+  "configDirectory": "./config",
+  "DotAnnotationRadius": 10,
+  "CurveAnnotationWidth": 3,
+  "MinPolygonArea": 10,
+  "MinBBXLength": 5,
+  "MinEllipseAxis": 5,
+  "MinCurveLength": 5,
+  "PenWidth": 1,
+  "PenAlpha": 255,
+  "BrushAlpha": 120,
+  "HighlightIncrAlpha": 50,
+  "HighlightIncrWidth": 1
+}

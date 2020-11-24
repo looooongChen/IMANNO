@@ -175,7 +175,7 @@ class FileListDock(QDockWidget):
             index = sorted(range(len(file_names)), key=lambda k: file_names[k])
             for idx in index:
                 item = ImageTreeItem(status=status[idx], path=files[idx])
-                item.set_icon(self.config['icons'][status[idx]])
+                item.set_icon(self.config.icons[status[idx]])
                 self.fileList.addTopLevelItem(item)
         elif self.project is not None and self.project.is_open():
             file_items = [self.project.index_id[idx] for idx in files if idx in self.project.index_id.keys()]
@@ -186,7 +186,7 @@ class FileListDock(QDockWidget):
                 status = file_item.status()
                 item = ImageTreeItem(status=status,
                                      path=file_item.image_path(), idx=file_item.idx())
-                item.set_icon(self.config['icons'][status])
+                item.set_icon(self.config.icons[status])
                 folder = file_item.folder()
                 if folder is None:
                     self.fileList.addTopLevelItem(item)
@@ -194,7 +194,7 @@ class FileListDock(QDockWidget):
                     self.folders[folder].addChild(item)
                 else:
                     folder = FolderTreeItem(folder)
-                    folder.set_icon(self.config['icons'][FOLDER])
+                    folder.set_icon(self.config.icons[FOLDER])
                     self.fileList.addTopLevelItem(folder)
                     self.folders[folder] = folder
                     folder.addChild(item)
@@ -226,7 +226,7 @@ class FileListDock(QDockWidget):
             if folder_name not in self.folders.keys():
                 self.project.add_folder(folder_name)
                 folder = FolderTreeItem(folder_name)
-                folder.set_icon(self.config['icons'][FOLDER])
+                folder.set_icon(self.config.icons[FOLDER])
                 self.fileList.addTopLevelItem(folder)
                 self.folders[folder_name] = folder
                 if new:
@@ -317,18 +317,18 @@ class FileListDock(QDockWidget):
 
     def _change_mark(self, item, status):
         if status == UNFINISHED:
-            item.setIcon(0, self.config['icons'][FINISHED])
+            item.setIcon(0, self.config.icons[FINISHED])
             return FINISHED
         if status == FINISHED:
-            item.setIcon(0, self.config['icons'][CONFIRMED])
+            item.setIcon(0, self.config.icons[CONFIRMED])
             return CONFIRMED
         if status == CONFIRMED:
-            item.setIcon(0, self.config['icons'][PROBLEM])
+            item.setIcon(0, self.config.icons[PROBLEM])
             return PROBLEM
         if status == PROBLEM:
-            item.setIcon(0, self.config['icons'][UNFINISHED])
+            item.setIcon(0, self.config.icons[UNFINISHED])
             return UNFINISHED
-        item.setIcon(0, self.config['icons'][UNFINISHED])
+        item.setIcon(0, self.config.icons[UNFINISHED])
         return UNFINISHED
 
     def close_project(self):
