@@ -121,51 +121,55 @@ def anno_copy(file1, file2):
     '''
     copy file2 to file1
     '''
-    if os.path.splitext(file1)[1] == os.path.splitext(file2)[1]:
-        shutil.copy(file2, file1)
-    else:
-        anno = anno_read(file2)
-        anno_save(anno, file1)
+    if os.path.isfile(file2):
+        if not os.path.isfile(file1):
+            shutil.copy(file2, file1)
+        elif not os.path.samefile(file1, file2) and os.path.splitext(file1)[1] == os.path.splitext(file2)[1]:
+            shutil.copy(file2, file1)
+        else:
+            anno = anno_read(file2)
+            anno_save(anno, file1)
 
 
 def anno_merge(file1, file2):
     '''
     merge content of file2 into file1
     '''
-    if not os.path.isfile(file1) and os.path.isfile(file2):
+    if os.path.isfile(file2) and not os.path.isfile(file1):
         anno_copy(file1, file2)
     
     anno1 = anno_read(file1)
     anno2 = anno_read(file2)
 
-    # merge status
-    s1, s2 = anno1['status'], anno2['status']
-    if s1 == FINISHED or s2 == FINISHED:
-        anno1['status'] = FINISHED
-    if s1 == PROBLEM or s2 == PROBLEM:
-        anno1['status'] = PROBLEM
-    if s1 == CONFIRMED and s2 == CONFIRMED:
-        anno1['status'] = CONFIRMED
-    # merge labels
-    for prop, labels in anno2['labels'].items():
-        if prop not in anno1['labels'].keys():
-            anno1['labels'][prop] = labels
-        else:
-            for label, color in anno2['labels'][prop].items():
-                if label not in anno1['labels'][prop].keys():
-                    anno1['labels'][prop][label] = color
-    # merge annotations
-    for timestamp, anno in anno2['annotations'].items():
-        if timestamp not in anno1['annotations'].keys():
-            anno1['annotations'][timestamp] = anno
-        else:
-            for prop, label in anno['labels'].items():
-                if prop not in anno1['annotations'][timestamp]['labels'].keys():
-                    anno1['annotations'][timestamp]['labels'][prop] = label
-                # if label conflict happens
-                elif anno1['annotations'][timestamp]['labels'][prop] != label:
-                    del anno1['annotations'][timestamp]['labels'][prop]
-    anno_save(anno1, file1)
+    if anno1 is not None and anno2 is not None:
+        # merge status
+        s1, s2 = anno1['status'], anno2['status']
+        if s1 == FINISHED or s2 == FINISHED:
+            anno1['status'] = FINISHED
+        if s1 == PROBLEM or s2 == PROBLEM:
+            anno1['status'] = PROBLEM
+        if s1 == CONFIRMED and s2 == CONFIRMED:
+            anno1['status'] = CONFIRMED
+        # merge labels
+        for prop, labels in anno2['labels'].items():
+            if prop not in anno1['labels'].keys():
+                anno1['labels'][prop] = labels
+            else:
+                for label, color in anno2['labels'][prop].items():
+                    if label not in anno1['labels'][prop].keys():
+                        anno1['labels'][prop][label] = color
+        # merge annotations
+        for timestamp, anno in anno2['annotations'].items():
+            if timestamp not in anno1['annotations'].keys():
+                anno1['annotations'][timestamp] = anno
+            else:
+                for prop, label in anno['labels'].items():
+                    if prop not in anno1['annotations'][timestamp]['labels'].keys():
+                        anno1['annotations'][timestamp]['labels'][prop] = label
+                    # if label conflict happens
+                    elif anno1['annotations'][timestamp]['labels'][prop] != label:
+                        del anno1['annotations'][timestamp]['labels'][prop]
+        anno_save(anno1, file1)
 
 def get_status(anno_path):
     status = UNFINISHED
@@ -181,6 +185,22 @@ def get_status(anno_path):
                 anno = json.load(f)
                 status = anno['status']
         return status
+
+
+def set_status(anno_path, status):
+    if status in [FINISHED, UNFINISHED, CONFIRMED, PROBLEM]:
+        if os.path.isfile(anno_path):
+            ext = os.path.splitext(anno_path)[1]
+            if ext == ANNOTATION_EXT:
+                with open(anno_path, "r") as f:
+                    anno_file = json.load(f)
+                anno_file['status'] = status
+                with open(anno_path, "w") as f:
+                    json.dump(anno_file, f)
+            if ext == '.hdf5':
+                with h5py.File(anno_path, 'a') as location:
+                    if 'status' in location.attrs.keys():
+                        status = location.attrs['status']
 
 
 def anno_report(anno_path):

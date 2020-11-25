@@ -3,10 +3,13 @@ from PyQt5.QtWidgets import QDockWidget, QTreeWidgetItem, QMenu, QMessageBox, QW
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.Qt import QStandardItem, QStandardItemModel, QAbstractItemView
+
+from .enumDef import *
+from .func_annotation import *
+
 import numpy as np
 import h5py
 import os
-from .enumDef import *
 
 class FolderTreeItem(QTreeWidgetItem):
 
@@ -269,10 +272,9 @@ class FileListDock(QDockWidget):
                 count = item.childCount()
                 if count >= 1:
                     item = item.child(0)
-            if item is None:
-                item = topLevelItem(0)
-            self.fileList.setCurrentItem(item)
-            self.signalImageChange.emit(item)
+            if item is not None:
+                self.fileList.setCurrentItem(item)
+                self.signalImageChange.emit(item)
 
     
     def previous_image(self):
@@ -291,10 +293,9 @@ class FileListDock(QDockWidget):
                 count = item.childCount()
                 if count >= 1:
                     item = item.child(count-1)
-            if item is None:
-                item = topLevelItem(0)
-            self.fileList.setCurrentItem(item)
-            self.signalImageChange.emit(item)
+            if item is not None:
+                self.fileList.setCurrentItem(item)
+                self.signalImageChange.emit(item)
 
     def double_clicked(self, item):
         if item.type() == FILE:
@@ -309,6 +310,7 @@ class FileListDock(QDockWidget):
                     status = self.project.get_status(idx)
                     status = self._change_mark(item, status)
                     self.project.set_status(idx, status)
+                    set_status(self.project.get_annotation_path(idx), status)
                 else:
                     path = os.path.splitext(item.path)[0] + ANNOTATION_EXT
                     status = self.annotationMgr.get_status(path)

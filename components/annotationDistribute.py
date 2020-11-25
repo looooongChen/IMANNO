@@ -54,7 +54,7 @@ class AnnotationDistributor(QDialog):
             folders = {}
             for f in sorted(project.data['folders']):
                 folder = FolderTreeItem(f)
-                folder.set_icon(self.config['icons'][FOLDER])
+                folder.set_icon(self.config.icons[FOLDER])
                 folder.setCheckState(0, Qt.Unchecked)
                 self.fileList.addTopLevelItem(folder)
                 folders[f] = folder
@@ -67,7 +67,7 @@ class AnnotationDistributor(QDialog):
                 status = file_item.status()
                 item = ImageTreeItem(status=status,
                                      path=file_item.image_path(), idx=file_item.idx())
-                item.set_icon(self.config['icons'][status])
+                item.set_icon(self.config.icons[status])
                 item.setCheckState(0, Qt.Unchecked)
                 folder_name = file_item.folder()
                 if folder_name is None:
@@ -153,6 +153,12 @@ class AnnotationDistributor(QDialog):
                                 anno_copy(file_item.annotation_path(), anno_path)
                             self.project.set_status(idx, get_status(file_item.annotation_path()))
                         elif mode == 'delete':
+                            ## hdf5 compatible
+                            anno_path_hdf5 = os.path.splitext(image_path)[0] + '.hdf5'
+                            print(anno_path_hdf5)
+                            if os.path.isfile(anno_path_hdf5):
+                                os.remove(anno_path_hdf5)
+                            anno_path = os.path.splitext(image_path)[0] + ANNOTATION_EXT
                             if os.path.isfile(anno_path):
                                 os.remove(anno_path)
                 self.project.save()      
