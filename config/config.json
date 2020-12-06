@@ -1,5 +1,5 @@
 {
-  "fileDirectory": "D:\\PheNeSens\\PheNeSensCyst",
+  "fileDirectory": "E:\\Datasets\\PheNeSensCyst",
   "configDirectory": "./config",
   "DotAnnotationRadius": 10,
   "CurveAnnotationWidth": 3,
