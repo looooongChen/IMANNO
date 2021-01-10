@@ -125,6 +125,7 @@ class AnnotationManager(Table):
             save = QMessageBox.Yes == QMessageBox.question(None, "Important...", "Would you like to save the changes in your annotations?", QMessageBox.Yes | QMessageBox.No) if inquiry else True
             if save and self.annotation_path is not None:
                 self.save_to_file(self.annotation_path)
+            self.config.saved = True
 
     def save_to_file(self, filename):
 
