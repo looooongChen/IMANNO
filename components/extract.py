@@ -65,15 +65,15 @@ class AnnoExporter(QDialog):
             item_c = item.clone()
             item_c.setCheckState(0, Qt.Unchecked)
             if isinstance(item, FolderTreeItem):
-                item_c.set_icon(self.config['icons'][FOLDER])
+                item_c.set_icon(self.config.icons[FOLDER])
                 self.fileList.addTopLevelItem(item_c)
                 for j in range(item.childCount()):
                     child_item = item.child(j).clone()
                     child_item.setCheckState(0, Qt.Unchecked)
-                    child_item.set_icon(self.config['icons'][child_item.status])
+                    child_item.set_icon(self.config.icons[child_item.status])
                     item_c.addChild(child_item)
             else:
-                item_c.set_icon(self.config['icons'][item_c.status])
+                item_c.set_icon(self.config.icons[item_c.status])
                 self.fileList.addTopLevelItem(item_c)
     
     def on_item_change(self, item, col):
