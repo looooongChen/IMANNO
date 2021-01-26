@@ -62,7 +62,7 @@ class Item(object):
 
     def image_path(self):
         if self.data['image_path'] is not None:
-            path = self.data['image_path']
+            path = self.data['image_path'].replace('\\', '/')
             path = os.path.join(self.proj_dir, path) if self.data['rel_path'] else path
             return path
         else:
