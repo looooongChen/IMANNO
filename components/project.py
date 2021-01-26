@@ -25,6 +25,8 @@ class Item(object):
     def create(cls, data_dict, proj_dir):
         obj = cls(proj_dir)
         obj.data = data_dict
+        obj.data['image_path'] = obj.data['image_path'].replace('\\', '/') 
+        obj.data['annotation_path'] = obj.data['annotation_path'].replace('\\', '/') 
         return obj
     
     def idx(self):
@@ -54,7 +56,7 @@ class Item(object):
         if rel_path and path.startswith(self.proj_dir):
             self.data['rel_path'] = True
             path = os.path.relpath(path, start=self.proj_dir)
-        self.data['image_path'] = path
+        self.data['image_path'] = path.replace('\\', '/') 
         self.data['name'], self.data['ext'] = os.path.splitext(os.path.basename(path))
         self.set_checksum()
 
@@ -79,7 +81,7 @@ class Item(object):
             anno_dir = os.path.join(self.proj_dir, 'annotations', self.data['idx'])
             if not os.path.exists(anno_dir):
                 os.makedirs(anno_dir)
-            self.data['annotation_path'] = os.path.join('annotations', self.data['idx'], 'anno'+ANNOTATION_EXT)
+            self.data['annotation_path'] = os.path.join('annotations', self.data['idx'], 'anno'+ANNOTATION_EXT).replace('\\', '/') 
             anno_path = os.path.join(self.proj_dir, self.data['annotation_path'])
             # with h5py.File(anno_path, 'a') as location:
             #     location.attrs['status'] = UNFINISHED
