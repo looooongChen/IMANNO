@@ -331,10 +331,11 @@ class LabelDispDock(QDockWidget):
         self.channel.addItem("Hidden", userData=HIDE_ALL)
         for prop_name, _ in self.labelMgr.items():
             self.channel.addItem("property: " + prop_name, userData=prop_name)
-        ind = self.channel.findText(currentText)
-        ind = 0 if ind == -1 else ind
-        self.on_channel_change(ind)
+        # ind = self.channel.findText(currentText)
+        # ind = 0 if ind == -1 else ind
+        # print(currentText, ind)
         self.channel.blockSignals(False)
+        self.set_channel(currentText)
 
     def set_channel(self, channel):
         '''
@@ -342,9 +343,19 @@ class LabelDispDock(QDockWidget):
             channel: string of property or an property object
         '''
         channel = channel.name if isinstance(channel, Property) else channel
-        if channel in self.labelMgr.keys():
-            ind = self.channel.findText("property: " + channel)
-            self.channel.setCurrentIndex(ind)
+        print(channel)
+        if isinstance(channel, str):
+            if channel.startswith("property: "):
+                channel = channel[10:]
+            if channel in self.labelMgr.keys():
+                ind = self.channel.findText("property: " + channel)
+                self.channel.setCurrentIndex(ind)
+            elif channel == 'Hidden':
+                print('hidden')
+                self.channel.setCurrentIndex(1)
+            else:
+                print('all')
+                self.channel.setCurrentIndex(0)
         elif channel == HIDE_ALL:
             self.channel.setCurrentIndex(1)
         else:
