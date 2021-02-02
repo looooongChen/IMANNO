@@ -343,7 +343,6 @@ class LabelDispDock(QDockWidget):
             channel: string of property or an property object
         '''
         channel = channel.name if isinstance(channel, Property) else channel
-        print(channel)
         if isinstance(channel, str):
             if channel.startswith("property: "):
                 channel = channel[10:]
@@ -351,10 +350,8 @@ class LabelDispDock(QDockWidget):
                 ind = self.channel.findText("property: " + channel)
                 self.channel.setCurrentIndex(ind)
             elif channel == 'Hidden':
-                print('hidden')
                 self.channel.setCurrentIndex(1)
             else:
-                print('all')
                 self.channel.setCurrentIndex(0)
         elif channel == HIDE_ALL:
             self.channel.setCurrentIndex(1)
