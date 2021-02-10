@@ -5,6 +5,7 @@ import json
 import numpy as np
 from .enumDef import *
 from .annotations import *
+from .messages import ProgressDiag
 
 def read_anno_item_hdf(anno_item):
     anno_type = anno_item.attrs['type']
@@ -202,28 +203,36 @@ def set_status(anno_path, status):
                     if 'status' in location.attrs.keys():
                         status = location.attrs['status']
 
+def anno_props(anno_path):
+    props = {}
+    if os.path.isfile(anno_path):
+        with open(anno_path, mode='r') as f:
+            anno = json.load(f)
+            props = anno['labels']
+    return props
+
+def anno_props(anno_list):
+    props = {}
+    if len(anno_list)>0:
+        progress = ProgressDiag(len(anno_list), 'Counting labels...')
+        progress.show()
+    for anno_path in anno_list:
+        progress.new_item('Counted: ' + anno_path)
+        if os.path.isfile(anno_path):
+            with open(anno_path, mode='r') as f:
+                anno = json.load(f)
+                for p, lbs in anno['labels'].items():
+                    if p in props.keys():
+                        props[p] = props[p].union(set(lbs))
+                    else: 
+                        props[p] = set(lbs)
+    return props
+
 
 def anno_report(anno_path):
     total, stats = 0, {}
-    if not os.path.isfile(anno_path):
-        return total, stats
-    ## hdf5 compatible
-    ext = os.path.splitext(anno_path)[1]
-    if ext == '.hdf5':
-        with h5py.File(anno_path, 'r') as f:
-            if 'annnotations' not in f.keys():
-                return total, stats
-            total = len(f['/annotations'])
-            for k, _ in f['/annotations'].items():
-                for prop, vv in f['annotations/'+k+'/labels'].items():
-                    if prop not in stats.keys():
-                        stats[prop] = {}
-                    label = vv.attrs['label_name']
-                    if label_name not in stats[kk].keys():
-                        stats[prop][label] = 1
-                    else:
-                        stats[prop][label] += 1
-    if ext == ANNOTATION_EXT:
+
+    if os.path.isfile(anno_path):
         with open(anno_path, mode='r') as f:
             anno = json.load(f)
             total = len(anno['annotations'])
@@ -237,3 +246,40 @@ def anno_report(anno_path):
                         stats[prop][label] += 1
 
     return total, stats
+
+# def anno_report(anno_path):
+#     total, stats = 0, {}
+#     if not os.path.isfile(anno_path):
+#         return total, stats
+#     ## hdf5 compatible
+#     ext = os.path.splitext(anno_path)[1]
+#     print(ext, anno_path)
+#     if ext == '.hdf5':
+#         print(ext)
+#         with h5py.File(anno_path, 'r') as f:
+#             if 'annnotations' not in f.keys():
+#                 return total, stats
+#             total = len(f['/annotations'])
+#             for k, _ in f['/annotations'].items():
+#                 for prop, vv in f['annotations/'+k+'/labels'].items():
+#                     if prop not in stats.keys():
+#                         stats[prop] = {}
+#                     label = vv.attrs['label_name']
+#                     if label_name not in stats[kk].keys():
+#                         stats[prop][label] = 1
+#                     else:
+#                         stats[prop][label] += 1
+#     if ext == ANNOTATION_EXT:
+#         with open(anno_path, mode='r') as f:
+#             anno = json.load(f)
+#             total = len(anno['annotations'])
+#             for _, anno_item in anno['annotations'].items():
+#                 for prop, label in anno_item['labels'].items():
+#                     if prop not in stats.keys():
+#                         stats[prop] = {}
+#                     if label not in stats[prop].keys():
+#                         stats[prop][label] = 1
+#                     else:
+#                         stats[prop][label] += 1
+
+#     return total, stats

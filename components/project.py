@@ -17,9 +17,12 @@ ITEM = {'idx': None, 'name': None, 'ext': None, 'checksum': None, 'image_path': 
 
 class Item(object):
 
-    def __init__(self, proj_dir):    
+    def __init__(self, proj_dir=None):    
         self.data = ITEM.copy()
-        self.proj_dir = proj_dir
+        if isinstance(proj_dir, str):
+            self.proj_dir = proj_dir.replace('\\', '/') 
+        else:
+            self.proj_dir = proj_dir
     
     @classmethod
     def create(cls, data_dict, proj_dir):

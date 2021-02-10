@@ -7,14 +7,60 @@ import cv2
 from .func_annotation import anno_read
 
 
-def export_mask(anno_path, img_path, save_as_one=True):
+def export_mask(anno_path, img_path, export_labels=None, save_as_one=True):
 
     anno_file = anno_read(anno_path)
     image = Image.open(img_path)
     width, height = image.size
-    
     if save_as_one:
         mask = np.zeros((height, width), np.uint16)
+    else:
+        mask_tmp = np.zeros((height, width), np.uint8)
+        mask = []
+    if export_labels is not None:
+        label_lookup = {}
+        for p, lbs in export_labels.items():
+            for lb in lbs:
+                label_lookup[p+'-'+lb] = 1  
+
+    count = 0
+    for _, anno in anno_file['annotations'].items(): 
+        anno_type = anno['type']
+
+        if anno_type == POLYGON:
+
+            if export_labels is None:
+                export = True
+            else:
+                export = False
+                for p, lb in anno['labels'].items():
+                    if p+'-'+lb in label_lookup.keys():
+                        export = True
+                        break
+            if export:
+                count += 1
+                pts = np.expand_dims(np.array(anno['coords']), 0)
+                if save_as_one:
+                    cv2.fillPoly(mask, pts.astype(np.int32), count)
+                else:
+                    mask_tmp = mask_tmp * 0
+                    cv2.fillPoly(mask_tmp, pts.astype(np.int32), 255)
+                    mask.append(mask_tmp.copy())
+        else:
+            print('Mask Export: ' + anno_type + ' not supported')
+    
+    return mask, count == 0
+
+def export_semantic(anno_path, img_path, category, labels, export_undefined=False, save_as_one=True):
+
+    if export_undefined:
+        lb_undefined = max(list(labels.values())) + 1 
+
+    anno_file = anno_read(anno_path)
+    image = Image.open(img_path)
+    width, height = image.size
+    if save_as_one:
+        mask = np.zeros((height, width), np.uint8)
     else:
         mask_tmp = np.zeros((height, width), np.uint8)
         mask = []
@@ -24,38 +70,58 @@ def export_mask(anno_path, img_path, save_as_one=True):
         anno_type = anno['type']
 
         if anno_type == POLYGON:
-            count += 1
-            pts = np.expand_dims(np.array(anno['coords']), 0)
-            if save_as_one:
-                cv2.fillPoly(mask, pts.astype(np.int32), count)
+
+            if export_undefined:
+                export = True
+                lb = lb_undefined
             else:
-                mask_tmp = mask_tmp * 0
-                cv2.fillPoly(mask_tmp, pts.astype(np.int32), 255)
-                mask.append(mask_tmp.copy())
+                export = False
+
+            if category in anno['labels']:
+                if anno['labels'][category] in labels.keys():
+                    export = True
+                    lb = labels[anno['labels'][category]]
+            
+            if export:
+                count += 1
+                pts = np.expand_dims(np.array(anno['coords']), 0)
+                if save_as_one:
+                    cv2.fillPoly(mask, pts.astype(np.int32), lb)
+                else:
+                    mask_tmp = mask_tmp * 0
+                    cv2.fillPoly(mask_tmp, pts.astype(np.int32), lb)
+                    mask.append(mask_tmp.copy())
         else:
             print('Mask Export: ' + anno_type + ' not supported')
 
+    
     return mask, count == 0
 
 
-def export_bbx(anno_path, img_path, export_property=None):
+def export_bbx(anno_path, img_path, category=None, labels={}, export_undefined=False):
 
     anno_file = anno_read(anno_path)
     annoList = []
-    export_property = None if export_property == '' else None
 
     count = 0
     for _, anno in anno_file['annotations'].items(): 
 
         if 'bbx' in anno.keys():
-            count += 1
+            if export_undefined:
+                export = True
+                lb = 'none'
+            else:
+                export = False
 
-            label_name = 'none'
-            if export_property in anno['labels'].keys():
-                label_name = anno['labels'][export_property]
-
-            bbx = anno['bbx']
-            annoList.append({'name': label_name, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
+            if category in anno['labels']:
+                if anno['labels'][category] in labels.keys():
+                    export = True
+                    lb = anno['labels'][category]
+            
+            if export:
+                count += 1
+                bbx = anno['bbx']
+                annoList.append({'name': lb, 'bndbox': (bbx[0], bbx[1], bbx[0]+bbx[2], bbx[1]+bbx[3])})
         else:
             print('Bounding Box Export: ' + anno['type'] + ' not supported')     
     
@@ -138,120 +204,151 @@ def createXml(AnnoList, img_path, save_name):
     fp.close()
 
 
-def extract_patch(anno_path, img_path, padding=0):
+def extract_patch(anno_path, img_path, padding=0, export_labels=None):
 
     anno_file = anno_read(anno_path)
     image = Image.open(img_path)
     padding = 0 if padding < 0 else padding
 
+    if export_labels is not None:
+        label_lookup = {}
+        for p, lbs in export_labels.items():
+            for lb in lbs:
+                label_lookup[p+'-'+lb] = 1  
+
     patches_img, patches_mask = [], []
     for _, anno in anno_file['annotations'].items():
         if 'bbx' in anno.keys():
-            # extract patches
-            bbx = anno['bbx']
-            x, y, w, h = bbx[0], bbx[1], bbx[2], bbx[3] 
-            padding_w, padding_h = round(w*padding), round(h*padding)
-            Xmin, Xmax = int(math.floor(max(x-padding_w, 0))), int(math.ceil(min(x+w+1+padding_w, image.width)))
-            Ymin, Ymax = int(math.floor(max(y-padding_h, 0))), int(math.ceil(min(y+h+1+padding_h, image.height)))
-            offset_x, offset_y = x - Xmin, y - Ymin
-            image_patch = image.crop((Xmin, Ymin, Xmax, Ymax))
 
-            mask_patch = None
-            if anno.attrs['type'] == POLYGON:
-                mask_patch = np.zeros((image_patch.height, image_patch.width), np.uint8)
-                pts = np.stack([anno['polygon'][:,0]+offset_x, anno['polygon'][:,1]+offset_y], axis=1)
-                pts = np.expand_dims(pts, 0)
-                cv2.fillPoly(mask_patch, pts.astype(np.int32), 255)
-            
-            patches_img.append(image_patch)
-            patches_mask.append(mask_patch)
+            if export_labels is None:
+                export = True
+            else:
+                export = False
+                for p, lb in anno['labels'].items():
+                    if p+'-'+lb in label_lookup.keys():
+                        export = True
+                        break
+
+            if export: 
+                # extract patches
+                bbx = anno['bbx']
+                x, y, w, h = bbx[0], bbx[1], bbx[2], bbx[3] 
+                padding_w, padding_h = round(w*padding), round(h*padding)
+                Xmin, Xmax = int(math.floor(max(x-padding_w, 0))), int(math.ceil(min(x+w+1+padding_w, image.width)))
+                Ymin, Ymax = int(math.floor(max(y-padding_h, 0))), int(math.ceil(min(y+h+1+padding_h, image.height)))
+                offset_x, offset_y = x - Xmin, y - Ymin
+                image_patch = image.crop((Xmin, Ymin, Xmax, Ymax))
+
+                mask_patch = None
+                if anno['type'] == POLYGON:
+                    mask_patch = np.zeros((image_patch.height, image_patch.width), np.uint8)
+                    pts = np.array(anno['coords'])
+                    pts[:,0] = pts[:,0] - Xmin 
+                    pts[:,1] = pts[:,1] - Ymin 
+                    pts = np.expand_dims(pts, 0)
+                    cv2.fillPoly(mask_patch, pts.astype(np.int32), 255)
+                
+                patches_img.append(image_patch)
+                patches_mask.append(mask_patch)
         else:
             print('Patch Export: ' + anno['type'] + ' not supported')     
                 
     return patches_img, patches_mask
 
-def export_skeleton(hdf5_path, img_path):
+# def export_skeleton(anno_path, img_path, export_labels=None):
 
-    supported_type = [POLYGON]
+#     supported_type = [POLYGON]
 
-    with h5py.File(hdf5_path, 'r') as location:
+#     anno_file = anno_read(anno_path)
+#     image = Image.open(img_path)
+#     width, height = image.size
+#     skeleton = np.zeros((height, width), np.uint16)
+#     if export_labels is not None:
+#         label_lookup = {}
+#         for p, lbs in export_labels.items():
+#             for lb in lbs:
+#                 label_lookup[p+'-'+lb] = 1  
+
+#     count = 0
+#     for _, anno in anno_file['annotations'].items():
         
-        image = Image.open(img_path)
-        width, height = image.size
+#         ske_tmp = skeleton.copy()
+#         anno_type = anno['type']
 
-        mask = np.zeros((height, width), np.uint16)
-        skeleton = mask.copy()
+#         if anno_type == POLYGON:
 
-        count = 0
-        if 'annotations' in location.keys():
-            for timestamp in location['annotations']:
-                anno = location['annotations'][timestamp]
+#             if export_labels is None:
+#                 export = True
+#             else:
+#                 export = False
+#                 for p, lb in anno['labels'].items():
+#                     if p+'-'+lb in label_lookup.keys():
+#                         export = True
+#                         break
+#             if export:
+#                 count += 1
 
-                if anno.attrs['type'] not in supported_type:
-                    print("Skeleton export: only " + str(supported_type) + " are supported.")
-                    continue
+#                 pts = np.expand_dims(np.array(anno['coords']), 0)
+#                 ske_tmp = ske_tmp * 0
+#                 cv2.fillPoly(ske_tmp, pts.astype(np.int32), 255)
 
-                bbx = anno['boundingBox']
-                pts = np.stack([anno['polygon'][:,0]+bbx[0], anno['polygon'][:,1]+bbx[1]], axis=1)
-                pts = np.expand_dims(pts, 0)
-                mask = mask * 0
-                cv2.fillPoly(mask, pts.astype(np.int32), 255)
+#                 ske_tmp = sekeleton_erosion(ske_tmp)
+#                 ske_tmp = thinning(ske_tmp)
 
-                skel = sekeleton_erosion(mask)
-                skel = thinning(skel)
+#                 # ske_tmp = remove_islolated_pixels(ske_tmp)
 
-                # skel = remove_islolated_pixels(skel)
-
-                count += 1
-                skel = (skel>0).astype(np.uint8)
-                skeleton = np.where(skel > 0, count*skel, skeleton)
+#                 ske_tmp = (ske_tmp>0).astype(np.uint8)
+#                 skeleton = np.where(ske_tmp > 0, count*ske_tmp, skeleton)
                 
-    is_empty = count == 0
-    return skeleton, is_empty
+#         else:
+#             print('Mask Export: ' + anno_type + ' not supported')
+
+#     is_empty = count == 0
+#     return (skeleton*30).astype(np.uint8), is_empty
 
 
-def thinning(mask):
-    # print(skeleton.shape, skeleton.dtype)
-    mask = (mask > 0).astype(np.uint8)
-    kernels = []
-    K1 = np.array(([-1, -1, -1], [0, 1, 0], [1, 1, 1]), dtype="int")
-    K2 = np.array(([0, -1, -1], [1, 1, -1], [0, 1, 0]), dtype="int")
-    kernels.append(K1)
-    kernels.append(K2)
-    kernels.append(np.rot90(K1, k=1))
-    kernels.append(np.rot90(K2, k=1))
-    kernels.append(np.rot90(K1, k=2))
-    kernels.append(np.rot90(K2, k=2))
-    kernels.append(np.rot90(K1, k=3))
-    kernels.append(np.rot90(K2, k=3))
+# def thinning(mask):
+#     # print(skeleton.shape, skeleton.dtype)
+#     mask = (mask > 0).astype(np.uint8)
+#     kernels = []
+#     K1 = np.array(([-1, -1, -1], [0, 1, 0], [1, 1, 1]), dtype="int")
+#     K2 = np.array(([0, -1, -1], [1, 1, -1], [0, 1, 0]), dtype="int")
+#     kernels.append(K1)
+#     kernels.append(K2)
+#     kernels.append(np.rot90(K1, k=1))
+#     kernels.append(np.rot90(K2, k=1))
+#     kernels.append(np.rot90(K1, k=2))
+#     kernels.append(np.rot90(K2, k=2))
+#     kernels.append(np.rot90(K1, k=3))
+#     kernels.append(np.rot90(K2, k=3))
 
-    done = False
-    while not done:
-        new = np.copy(mask)
-        for k in kernels:
-            new = new - cv2.morphologyEx(new, cv2.MORPH_HITMISS, k)
-        done = np.array_equal(new, mask)
-        mask = new
+#     done = False
+#     while not done:
+#         new = np.copy(mask)
+#         for k in kernels:
+#             new = new - cv2.morphologyEx(new, cv2.MORPH_HITMISS, k)
+#         done = np.array_equal(new, mask)
+#         mask = new
     
-    return mask
+#     return mask
 
-def sekeleton_erosion(mask):
+# def sekeleton_erosion(mask):
 
-    size = np.size(mask)
-    skel = np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
-    _, mask = cv2.threshold(mask,127,255,cv2.THRESH_BINARY)
-    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
-    done = False
+#     size = np.size(mask)
+#     skel = np.zeros((mask.shape[0], mask.shape[1]), np.uint8)
+#     _, mask = cv2.threshold(mask,127,255,cv2.THRESH_BINARY)
+#     element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
+#     done = False
     
-    while( not done):
-        eroded = cv2.erode(mask,element)
-        temp = cv2.dilate(eroded,element)
-        temp = cv2.subtract(mask,temp)
-        skel = np.bitwise_or(skel,temp)
-        mask = eroded.copy()
+#     while( not done):
+#         eroded = cv2.erode(mask,element)
+#         temp = cv2.dilate(eroded,element)
+#         temp = cv2.subtract(mask,temp)
+#         skel = np.bitwise_or(skel,temp)
+#         mask = eroded.copy()
     
-        zeros = size - cv2.countNonZero(mask)
-        if zeros==size:
-            done = True
+#         zeros = size - cv2.countNonZero(mask)
+#         if zeros==size:
+#             done = True
     
-    return skel
+#     return skel

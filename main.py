@@ -241,7 +241,10 @@ class MainWindow(QMainWindow):
             progress.show()
             for _, item in self.project.index_id.items():
                 progress.new_item('Propcessed: ' + item.image_path())
-                if os.path.splitext(item.annotation_path())[1] == '.hdf5':
+                anno_json = os.path.splitext(item.annotation_path())[0] + ANNOTATION_EXT 
+                anno_hdf5 = os.path.splitext(item.annotation_path())[0] + '.hdf5' 
+                # if os.path.splitext(item.annotation_path())[1] == '.hdf5':
+                if not os.path.exists(anno_json):
                     item.set_annotation_path()
                     self.annotationMgr.load(item.annotation_path(), graphItem=False)
             self.project.save()

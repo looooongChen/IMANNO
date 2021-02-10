@@ -46,6 +46,8 @@ OP_CANCEL = 102
 OP_IMPORT = 103
 OP_CLOSEANDOPEN = 104
 
+EX_STAR = 200
+
 # from PyQt5.QtGui import QIcon
 import os
 icon_path = os.path.join(os.path.dirname(__file__), '../icons/')
@@ -57,6 +59,8 @@ ICONS[PROBLEM] = os.path.join(icon_path, 'problem.png')
 
 ICONS[FOLDER] = os.path.join(icon_path, 'folder.png')
 ICONS[LABEL] = os.path.join(icon_path, 'label.png')
+
+ICONS[EX_STAR] = os.path.join(icon_path, 'star.png')
 
 ICONS[NEW] = os.path.join(icon_path, 'new.png')
 ICONS[DELETE] = os.path.join(icon_path, 'delete.png')

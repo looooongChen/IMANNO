@@ -21,6 +21,7 @@ class ProjectReport(QDialog):
     def init_table(self, project):
         self.report.clear()
         self.report.setHeaderLabels(['Property', 'Count'])
+
         total, stats = project.report()
         img_count = QTreeWidgetItem(['Images Number: ', str(len(project.index_id))])
         self.report.addTopLevelItem(img_count)
