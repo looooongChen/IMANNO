@@ -282,7 +282,8 @@ class LabelDispDock(QDockWidget):
             if item.type() == PROPERTY:
                 prop_name = item.data(0, Qt.UserRole)
                 prop = self.labelMgr[prop_name]
-                if item.text(0) not in self.labelMgr.keys():
+                if item.text(0) not in self.labelMgr.keys() and not item.text(0).isupper():
+                    # all upper string is preserved 
                     self.labelMgr.rename_property(prop_name, item.text(0))
                     self.labelList.blockSignals(True)
                     item.setData(0, Qt.UserRole, item.text(0))

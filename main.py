@@ -1,5 +1,5 @@
 # from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem, QDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem, QDialog, QAction
 from PyQt5.QtGui import QFont, QImage, QKeySequence, QPixmap, QIcon 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5 import uic
@@ -111,8 +111,8 @@ class MainWindow(QMainWindow):
         self.actionOpenFile.triggered.connect(self.open_file)
         self.actionOpenDirectory.triggered.connect(self.open_directory)
         self.actionSave.triggered.connect(lambda : self.annotationMgr.save(inquiry=False))
-        self.actionMask_Directory.triggered.connect(self.set_mask_dir)
-        self.actionImport_Mask.triggered.connect(self.import_mask)
+        self.actionExportImage.triggered.connect(lambda : self.project.export_image_list(path=None))
+        self.actionImportSeg.triggered.connect(lambda : self.project.import_seg_list(path=None))
 
         # project menus
         self.actionProjectRemoveDuplicate.triggered.connect(self.project_remove_duplicate)
@@ -149,6 +149,10 @@ class MainWindow(QMainWindow):
         self.actionPreviousImage.triggered.connect(self.fileList.previous_image)
         self.actionAutoContrast.triggered.connect(self.auto_contrast)
         self.actionScreenShot.triggered.connect(self.take_screenshot)
+
+        # analysis menu actions
+        # for f in os.listdir('instSegModules'):
+        #     action = self.menuInstSeg.addAction(f)
         
         # setting menu actions
         self.actionConfig.triggered.connect(self.start_setting)
@@ -205,8 +209,6 @@ class MainWindow(QMainWindow):
         # load image and annotation
         if self.project.is_open() and isinstance(image, ImageTreeItem):
             idx = image.idx
-            ## hdf5 compatible
-            self.project.index_id[idx].set_annotation_path()
             image_path = self.project.get_image_path(idx)
             annotation_path = self.project.get_annotation_path(idx)
             # update path when necessary

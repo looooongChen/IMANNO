@@ -83,3 +83,8 @@ LABEL_COLORS = {'red':'#ec524b',
                 'blue': '#3282b8',
                 'violet': '#6a2c70',
                 'magenta': '#db75c5'}
+
+IMPORT_FP = [255, 0, 0]
+IMPORT_CHECKED = [0, 255, 0]
+IMPORT_FN = [255, 255, 0]
+IMPORT_MATCH_DICE = 0.6

@@ -32,8 +32,8 @@
     <addaction name="actionOpenFile"/>
     <addaction name="actionSave"/>
     <addaction name="separator"/>
-    <addaction name="actionMask_Directory"/>
-    <addaction name="actionImport_Mask"/>
+    <addaction name="actionExportImage"/>
+    <addaction name="actionImportSeg"/>
    </widget>
    <widget class="QMenu" name="menuAnnotation">
     <property name="title">
@@ -89,11 +89,24 @@
     <addaction name="actionProjectSearch"/>
     <addaction name="actionProjectReport"/>
    </widget>
+   <widget class="QMenu" name="menuAnalysis">
+    <property name="title">
+     <string>Analysis</string>
+    </property>
+    <widget class="QMenu" name="menuInstSeg">
+     <property name="title">
+      <string>Segment Instances</string>
+     </property>
+     <addaction name="separator"/>
+    </widget>
+    <addaction name="menuInstSeg"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuProject"/>
    <addaction name="menuAnnotation"/>
    <addaction name="menuLable"/>
    <addaction name="menuTools"/>
+   <addaction name="menuAnalysis"/>
    <addaction name="menuSetting"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
@@ -284,22 +297,22 @@
     <string>Clean Noisy Annotations</string>
    </property>
   </action>
-  <action name="actionMask_Directory">
+  <action name="actionImportSeg">
    <property name="icon">
     <iconset>
      <normaloff>../icons/mask.png</normaloff>../icons/mask.png</iconset>
    </property>
    <property name="text">
-    <string>Mask Directory</string>
+    <string>Import Image Segmentation</string>
    </property>
   </action>
-  <action name="actionImport_Mask">
+  <action name="actionExportImage">
    <property name="icon">
     <iconset>
-     <normaloff>../icons/import.png</normaloff>../icons/import.png</iconset>
+     <normaloff>../icons/list.png</normaloff>../icons/list.png</iconset>
    </property>
    <property name="text">
-    <string>Import Mask</string>
+    <string>Export Image List</string>
    </property>
   </action>
   <action name="actionZoomIn">
@@ -501,6 +514,16 @@
    </property>
    <property name="text">
     <string>HDFf5 to JSON</string>
+   </property>
+  </action>
+  <action name="actionImport_DL_models">
+   <property name="text">
+    <string>Import DL models</string>
+   </property>
+  </action>
+  <action name="action_Import_Seg">
+   <property name="text">
+    <string>Import Module</string>
    </property>
   </action>
  </widget>
