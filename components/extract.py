@@ -111,10 +111,11 @@ class AnnoExporter(QDialog):
         return labels
     
     def files(self, items):
-        images, annotations = [], []
+        images, annotations, idxs = [], [], []
         if self.project.is_open():
             for item in items:
                 idx = item.idx
+                idxs.append(idx)
                 images.append(self.project.get_image_path(idx))
                 annotations.append(self.project.get_annotation_path(idx))
         else:
@@ -123,7 +124,8 @@ class AnnoExporter(QDialog):
                 annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
                 images.append(image_path)
                 annotations.append(annotation_path)
-        return images, annotations
+                idxs.append(None)
+        return images, annotations, idxs
     
     # constraints of selection
 
@@ -188,7 +190,7 @@ class AnnoExporter(QDialog):
                 item_c.set_icon(self.config.icons[item_c.status])
                 self.imageList.addTopLevelItem(item_c)
                 items.append(item_c)
-        _, anno_files = self.files(items)
+        _, anno_files, _ = self.files(items)
 
         props = anno_props(anno_files)
 
@@ -298,7 +300,7 @@ class AnnoExporter(QDialog):
             # get selected items
             image_items = self.selected_image_items()
             # get valid images and annotations
-            images, annotations = self.files(image_items)
+            images, annotations, idxs = self.files(image_items)
             # selected labels:
             labels = self.selected_labels()
             if str(self.exportType.currentText()) in [TP_SEMANTIC_SINGLE, TP_SEMANTIC_MULTI, TP_BBX] and len(labels) > 0:
@@ -319,7 +321,7 @@ class AnnoExporter(QDialog):
             with open(os.path.join(save_dir, 'files.csv'), mode='w', newline='') as files:
                 file_writer = csv.writer(files, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                 progress, sn = 0, 0
-                for img, anno in zip(images, annotations):
+                for img, anno, idx in zip(images, annotations, idxs):
                     progress += 1
                     if int(progress*100/total) - self.progressBar.value() >= 1:
                         self.progressBar.setValue(progress*100/total)
@@ -339,7 +341,7 @@ class AnnoExporter(QDialog):
                         save_path = os.path.join(save_dir, save_name)
                         cv2.imwrite(save_path, export)
                         # file_writer.writerow([img, save_path])
-                        file_writer.writerow([img, save_name])
+                        file_writer.writerow([idx, img, save_name])
                     # export mask multiple
                     elif exportType == TP_INSTANCE_MULTI:
                         if exportAllObjects:
@@ -358,7 +360,7 @@ class AnnoExporter(QDialog):
                         for j, mask in enumerate(export):
                             cv2.imwrite(os.path.join(save_path, 'obj_{:03d}.png'.format(j)), mask)
                         # file_writer.writerow([img, save_path])
-                        file_writer.writerow([img, save_name])
+                        file_writer.writerow([idx, img, save_name])
                     # export semantic single
                     elif exportType == TP_SEMANTIC_SINGLE:
                         if len(labels) == 0:
@@ -371,7 +373,7 @@ class AnnoExporter(QDialog):
                         save_path = os.path.join(save_dir, save_name)
                         # save_path = os.path.join(save_dir, "semantic_{:08d}.png").format(sn)
                         cv2.imwrite(save_path, export)
-                        file_writer.writerow([img, save_name])
+                        file_writer.writerow([idx, img, save_name])
                     # export semantic multi
                     elif exportType == TP_SEMANTIC_MULTI:
                         if len(labels) == 0:
@@ -386,7 +388,7 @@ class AnnoExporter(QDialog):
                         os.makedirs(save_path)
                         for j, mask in enumerate(export):
                             cv2.imwrite(os.path.join(save_path, 'obj_{:03d}.png'.format(j)), mask)
-                        file_writer.writerow([img, save_name])
+                        file_writer.writerow([idx, img, save_name])
                     # export bounding box
                     elif exportType == TP_BBX:
                         if len(labels) == 0:
@@ -399,7 +401,7 @@ class AnnoExporter(QDialog):
                         save_path = os.path.join(save_dir, save_name)
                         # save_path = os.path.join(save_dir, "bbx_{:08d}.xml").format(sn)
                         createXml(export, img, save_path)
-                        file_writer.writerow([img, save_name])
+                        file_writer.writerow([idx, img, save_name])
                     # export patches
                     elif exportType == TP_PATCH:
                         padding = self.valuePadding.value()
@@ -428,7 +430,7 @@ class AnnoExporter(QDialog):
                                 cv2.imwrite(os.path.join(save_dir, mask_patch_name), masks[j])
                             else:
                                 mask_patch_path = ''
-                            file_writer.writerow([img_patch_name, mask_patch_name])
+                            file_writer.writerow([idx, img_patch_name, mask_patch_name])
                     # elif exportType == TP_SKELETON:
 
                     #     if exportAllObjects:

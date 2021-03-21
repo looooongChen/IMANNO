@@ -26,7 +26,6 @@ from components.projectMerge import ProjectMerger
 from components.annotationDistribute import AnnotationDistributor
 from components.projectReport import ProjectReport
 from components.setting import MaskDirDialog
-from components.mask2contour import mask2contour
 
 __author__ = 'long, bug'
 
