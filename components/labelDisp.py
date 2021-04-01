@@ -349,15 +349,19 @@ class LabelDispDock(QDockWidget):
                 channel = channel[10:]
             if channel in self.labelMgr.keys():
                 ind = self.channel.findText("property: " + channel)
-                self.channel.setCurrentIndex(ind)
             elif channel == 'Hidden':
-                self.channel.setCurrentIndex(1)
+                ind = 1
             else:
-                self.channel.setCurrentIndex(0)
+                ind = 0
         elif channel == HIDE_ALL:
-            self.channel.setCurrentIndex(1)
+            ind = 1
         else:
-            self.channel.setCurrentIndex(0)
+            ind = 0
+        self.channel.blockSignals(True)
+        self.channel.setCurrentIndex(ind)
+        self.channel.blockSignals(False)
+        self.on_channel_change(ind)
+
 
     def on_channel_change(self, ind):
         name = self.channel.itemData(ind, Qt.UserRole)

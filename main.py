@@ -195,7 +195,7 @@ class MainWindow(QMainWindow):
         if annotation_path is not None:
             print("Annotation Loaded: ", annotation_path)
             self.annotationMgr.load(annotation_path)
-            # self.canvas.sync()
+            self.canvas.sync()
             self.labelDisp.sync()
 
     def load(self, image):
