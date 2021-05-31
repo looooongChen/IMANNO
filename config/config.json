@@ -1,5 +1,5 @@
 {
-  "fileDirectory": "E:\\Datasets\\PheNeSensCyst",
+  "fileDirectory": "D:/Datasets/BBBC006_U2OScell/BBBC006_v1_images_z_16",
   "configDirectory": "./config",
   "DotAnnotationRadius": 10,
   "CurveAnnotationWidth": 3,

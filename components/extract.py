@@ -93,7 +93,7 @@ class AnnoExporter(QDialog):
                     if child_item.checkState(0) == Qt.Checked:
                         items.append(child_item)
             else:
-                if tem.checkState(0) == Qt.Checked:
+                if item.checkState(0) == Qt.Checked:
                     items.append(item)
         return items
     
@@ -115,16 +115,19 @@ class AnnoExporter(QDialog):
         if self.project.is_open():
             for item in items:
                 idx = item.idx
-                idxs.append(idx)
-                images.append(self.project.get_image_path(idx))
-                annotations.append(self.project.get_annotation_path(idx))
+                image_path, annotation_path = self.project.get_image_path(idx), self.project.get_annotation_path(idx)
+                if os.path.exists(image_path) and os.path.exists(annotation_path):
+                    idxs.append(idx)
+                    images.append(image_path)
+                    annotations.append(annotation_path)
         else:
             for item in items:
                 image_path = item.path
-                annotation_path = os.path.splitext(image_path)[0] + '.' + ANNOTATION_EXT
-                images.append(image_path)
-                annotations.append(annotation_path)
-                idxs.append(None)
+                annotation_path = os.path.splitext(image_path)[0] + ANNOTATION_EXT
+                if os.path.exists(image_path) and os.path.exists(annotation_path):
+                    images.append(image_path)
+                    annotations.append(annotation_path)
+                    idxs.append(None)
         return images, annotations, idxs
     
     # constraints of selection

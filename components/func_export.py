@@ -1,5 +1,4 @@
 from .enumDef import *
-import h5py
 from PIL import Image
 import numpy as np
 import math
