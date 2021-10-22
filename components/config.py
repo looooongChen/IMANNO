@@ -9,7 +9,7 @@ class Config(dict):
         self['fileDirectory'] = './'
         self['configDirectory'] = './config'
 
-        self['DotAnnotationRadius'] = 10
+        self['DotAnnotationRadius'] = 20
         self['CurveAnnotationWidth'] = 3
         self['MinPolygonArea'] = 10
         self['MinBBXLength'] = 5
@@ -21,6 +21,9 @@ class Config(dict):
         self['BrushAlpha'] = 120
         self['HighlightIncrAlpha'] = 50
         self['HighlightIncrWidth'] = 1
+        self['HighlightIncrWidthDot'] = 3
+
+        self['DotDefaultColor'] = '#cc0000'
 
         self.saved = True
         self.disp = SHOW_ALL

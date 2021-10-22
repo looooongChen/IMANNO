@@ -43,6 +43,8 @@ class MainWindow(QMainWindow):
         self.ui = uic.loadUi('uis/mainWindow.ui', baseinstance=self)
         self.setWindowTitle('Image Annotations Toolkit by LfB, RWTH Aachen University')
         self.config = Config('./config/config.json')
+        # self.config['BrushAlpha'] = 120
+        # self.config['PenWidth'] = 1
         # appearance
         self.font = QFont("Times", pointSize=10)
         self.setFont(self.font)

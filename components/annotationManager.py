@@ -154,6 +154,7 @@ class AnnotationManager(Table):
 
         if self.config.saved is False:
             self.save(inquiry=True)
+        self.clear()
 
         ## hdf5 
         fname, ext = os.path.splitext(annotation_path)
@@ -167,7 +168,6 @@ class AnnotationManager(Table):
         
         if os.path.isfile(annotation_path):
             self.annotation_path = annotation_path
-            self.clear()
 
             ## hdf5 compatible
             if ext == '.hdf5':

@@ -1,7 +1,7 @@
 {
-  "fileDirectory": "D:/Datasets/BBBC006_U2OScell/BBBC006_v1_images_z_16",
+  "fileDirectory": "D:\\Datasets\\Nema-Cyst-Count",
   "configDirectory": "./config",
-  "DotAnnotationRadius": 10,
+  "DotAnnotationRadius": 20,
   "CurveAnnotationWidth": 3,
   "MinPolygonArea": 10,
   "MinBBXLength": 5,
@@ -11,5 +11,7 @@
   "PenAlpha": 255,
   "BrushAlpha": 120,
   "HighlightIncrAlpha": 50,
-  "HighlightIncrWidth": 1
+  "HighlightIncrWidth": 1,
+  "HighlightIncrWidthDot": 3,
+  "DotDefaultColor": "#cc0000"
 }

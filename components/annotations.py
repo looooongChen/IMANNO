@@ -35,6 +35,7 @@ class Annotation(object):
         self.dataObject = self._dataObject(obj)
         self.graphObject = self._graphObject(self.dataObject)
         self.parse_labels()
+        self.default_color = DEFAULT_COLOR
 
     def parse_labels(self):
         if 'labels' in self.dataObject.keys():
@@ -72,7 +73,7 @@ class Annotation(object):
     def _color(self, config):
 
         if config.disp == SHOW_ALL:
-            color = QColor(DEFAULT_COLOR)
+            color = QColor(self.default_color)
         elif config.disp == HIDE_ALL:
             color = QColor('#000000')
         elif config.disp in self.labels.keys():
@@ -147,18 +148,20 @@ class DotAnnotation(Annotation):
                   'coords': [x, y]}
                 or QGraphicsPolygonItem  
         """
-        self.radius = 10
+        self.radius = labelMgr.config['DotAnnotationRadius']
         super().__init__(timestamp, dot, labelMgr)
+        self.default_color = labelMgr.config['DotDefaultColor']
 
-    def _star(self, center, R):
-        star = [QPointF(0,R), QPointF(R/6,R/6), QPointF(R,0), QPointF(R/6,-R/6), QPointF(0,-R), QPointF(-R/6,-R/6), QPointF(-R,0), QPointF(-R/6,R/6), QPointF(0,R)]
+    def _star(self, center):
+        R = self.radius
+        star = [QPointF(0,R), QPointF(R/5,R/5), QPointF(R,0), QPointF(R/5,-R/5), QPointF(0,-R), QPointF(-R/5,-R/5), QPointF(-R,0), QPointF(-R/5,R/5), QPointF(0,R)]
         star = [pt + QPointF(center[0], center[1]) for pt in star]
         star = QPolygonF(star)
         star = QGraphicsPolygonItem(star)
         return star
 
     def _graphObject(self, obj):
-        return self._star(obj['coords'], self.radius)
+        return self._star(obj['coords'])
 
     def sync_disp(self, config=None):
         if config is None:
@@ -175,7 +178,7 @@ class DotAnnotation(Annotation):
         alpah = 255
         width = config['PenWidth']
         if self.highlighted:
-            width += config['HighlightIncrWidth']
+            width += config['HighlightIncrWidthDot']
         color = self._color(config)
         color.setAlpha(alpah)
         pen = QPen(color, width, Qt.SolidLine, Qt.RoundCap, Qt.MiterJoin)

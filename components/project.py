@@ -64,10 +64,13 @@ class Item(object):
 
     def set_image_path(self, path, rel_path=True):
         path = os.path.abspath(os.path.realpath(path))
+        path = path.replace('\\', '/') 
+        print(path, self.proj_dir)
         if rel_path and path.startswith(self.proj_dir):
+            print('True')
             self.data['rel_path'] = True
             path = os.path.relpath(path, start=self.proj_dir)
-        self.data['image_path'] = path.replace('\\', '/') 
+        self.data['image_path'] = path
         self.data['name'], self.data['ext'] = os.path.splitext(os.path.basename(path))
         self.set_checksum()
 
@@ -507,38 +510,59 @@ class Project(object):
                     k, seg_path = row[0], row[1]
                     progress.new_item("processed: "+seg_path)
                     if k in self.index_id.keys() and os.path.isfile(seg_path):
-                        # read annotations
+                        # # read annotations
+                        # anno_path = self.index_id[k].annotation_path()
+                        # with open(anno_path) as json_file:
+                        #     anno = json.load(json_file)
+                        # k_anno, contours_anno = [], []
+                        # anno['labels']['IMPORT'] = {
+                        #     'False Postive': IMPORT_FP,
+                        #     'Checked': IMPORT_CHECKED,
+                        #     'False Negative': IMPORT_FN,
+                        # }
+                        # for k, item in anno['annotations'].items():
+                        #     if item['type'] == POLYGON: 
+                        #         if 'IMPORT' not in item['labels'].keys():
+                        #             item['labels']['IMPORT'] = 'False Negative'
+                        #         k_anno.append(k)
+                        #         contours_anno.append(np.array(item['coords']))
+                        # # read image
+                        # seg = cv2.imread(seg_path, cv2.IMREAD_UNCHANGED)
+                        # if len(seg.shape) == 3:
+                        #     seg = seg[:,:,0]
+                        # contours_seg = mask2contour(seg)
+                        # match = match_contours(contours_seg, contours_anno)
+                        # for idx_seg, idx_anno in enumerate(np.argmax(match, axis=1)):
+                        #     if match[idx_seg, idx_anno] > IMPORT_MATCH_DICE:
+                        #         anno['annotations'][k_anno[idx_anno]]['labels']['IMPORT'] = 'Checked'
+                        #     else:
+                        #         data = {'timestamp': datim.today().isoformat('@'),  
+                        #                 'type': POLYGON,  
+                        #                 'labels': {'IMPORT': 'False Postive'},  
+                        #                 'coords': contours_seg[idx_seg].tolist(),
+                        #                 'bbx': list(cv2.boundingRect(contours_seg[idx_seg]))}
+                        #         print(data['timestamp'])
+                        #         anno['annotations'][data['timestamp']] = copy.deepcopy(data)
+                        #         sleep(0.0001)
+                        # with open(anno_path, 'w') as f:
+                        #     json.dump(anno, f)
+
                         anno_path = self.index_id[k].annotation_path()
                         with open(anno_path) as json_file:
                             anno = json.load(json_file)
-                        k_anno, contours_anno = [], []
-                        anno['labels']['IMPORT'] = {
-                            'False Postive': IMPORT_FP,
-                            'Checked': IMPORT_CHECKED,
-                            'False Negative': IMPORT_FN,
-                        }
-                        for k, item in anno['annotations'].items():
-                            if item['type'] == POLYGON: 
-                                if 'IMPORT' not in item['labels'].keys():
-                                    item['labels']['IMPORT'] = 'False Negative'
-                                k_anno.append(k)
-                                contours_anno.append(np.array(item['coords']))
                         # read image
                         seg = cv2.imread(seg_path, cv2.IMREAD_UNCHANGED)
+                        if len(seg.shape) == 3:
+                            seg = seg[:,:,0]
                         contours_seg = mask2contour(seg)
-                        match = match_contours(contours_seg, contours_anno)
-                        for idx_seg, idx_anno in enumerate(np.argmax(match, axis=1)):
-                            if match[idx_seg, idx_anno] > IMPORT_MATCH_DICE:
-                                anno['annotations'][k_anno[idx_anno]]['labels']['IMPORT'] = 'Checked'
-                            else:
-                                data = {'timestamp': datim.today().isoformat('@'),  
-                                        'type': POLYGON,  
-                                        'labels': {'IMPORT': 'False Postive'},  
-                                        'coords': contours_seg[idx_seg].tolist(),
-                                        'bbx': list(cv2.boundingRect(contours_seg[idx_seg]))}
-                                print(data['timestamp'])
-                                anno['annotations'][data['timestamp']] = copy.deepcopy(data)
-                                sleep(0.0001)
+                        for contour in contours_seg:
+                            data = {'timestamp': datim.today().isoformat('@'),  
+                                    'type': POLYGON,  
+                                    'coords': contour.tolist(),
+                                    'bbx': list(cv2.boundingRect(contour))}
+                            print(data['timestamp'])
+                            anno['annotations'][data['timestamp']] = copy.deepcopy(data)
+                            sleep(0.0001)
                         with open(anno_path, 'w') as f:
                             json.dump(anno, f)
                         
