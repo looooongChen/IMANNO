@@ -20,12 +20,13 @@ class Image(object):
         
         self.path = None
         self.filename = None
-        self.data = None
+        self.data = []
         self.height, self.width = None, None
         self.disp = None
         self.auto_contrast = False
         # self.checksum = None 
         self.image_open = False
+        self.idx = 0
     
     def is_open(self):
         return self.image_open
@@ -34,40 +35,66 @@ class Image(object):
         self.close()
 
         # unicode path compatiable
-        numpyarray = np.fromfile(path, dtype='uint8')
-        self.data = cv2.imdecode(numpyarray, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-        # self.data = cv2.imread(path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
-        if self.data is not None:
+        # numpyarray = np.fromfile(path, dtype='uint8')
+        # self.data = cv2.imdecode(numpyarray, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+        _, ext = os.path.splitext(path)
+        if ext in ['.tif', '.tiff']:
+            self.data = cv2.imreadmulti(path)[1]
+        elif ext in ['.avi', '.mp4']:
+            pass
+        else:
+            self.data = cv2.imread(path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+            self.data = [self.data] if self.data is not None else []
+        
+        if len(self.data) > 0:
+            if len(self.data[0].shape) == 3:
+                self.data = [np.flip(im, 2) for im in self.data]
             self.path = path
             self.filename = os.path.basename(path)
-            if len(self.data.shape) == 3:
-                self.data = np.flip(self.data, 2)
-            self.height, self.width = self.data.shape[0], self.data.shape[1]
-            self.disp = self.data
+            self.height, self.width = self.data[0].shape[0], self.data[0].shape[1]
+            self.disp = self.data[0]
             self.auto_contrast = False
             # self.checksum = None
             self.image_open = True
     
+    def next(self):
+        if len(self.data) > 0:
+            self.idx = self.idx + 1 if self.idx < len(self.data)-1 else 0
+            self.disp = self.data[self.idx]
+            return True
+        else:
+            return False
+
+    def last(self):
+        if len(self.data) > 0:
+            self.idx = self.idx - 1 if self.idx > 0 else len(self.data) - 1
+            self.disp = self.data[self.idx]
+            return True
+        else:
+            return False
+            
+    
     def close(self):
         self.path = None
         self.filename = None
-        self.data = None
+        self.data = []
         self.height, self.width = None, None
         self.disp = None
         self.auto_contrast = False
         # self.checksum = None
         self.image_open = False
+        self.idx = 0
 
     def set_auto_contrast(self, auto_contrast=True):
         if self.is_open():
             if self.auto_contrast is False and auto_contrast:
                 # data_sub = self.data[::16,::16]
                 # mmin, mmax = data_sub.min(), data_sub.max()
-                mmin, mmax = self.data.min(), self.data.max()
-                self.disp = ((self.data-mmin)*(255/(mmax-mmin))).astype(np.uint8)
+                mmin, mmax = self.data[self.idx].min(), self.data[self.idx].max()
+                self.disp = ((self.data[self.idx]-mmin)*(255/(mmax-mmin))).astype(np.uint8)
                 self.auto_contrast = True
             if self.auto_contrast and auto_contrast is False:
-                self.disp = self.data
+                self.disp = self.data[self.idx]
                 self.auto_contrast = False
 
     def get_QImage(self):
@@ -81,7 +108,7 @@ class Image(object):
                 pass
             else:
                 return None
-                print("Not supported image shape:", self.data.shape, ', image dtype:', self.data.dtype) 
+                print("Not supported image shape:", self.data[0].shape, ', image dtype:', self.data[0].dtype) 
             return QImage(disp, self.width, self.height, QImage.Format_RGBA8888)
         else:
             return None

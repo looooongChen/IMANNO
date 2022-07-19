@@ -20,7 +20,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>17</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -69,8 +69,11 @@
     <addaction name="actionZoomOut"/>
     <addaction name="actionNextImage"/>
     <addaction name="actionPreviousImage"/>
-    <addaction name="actionAutoContrast"/>
     <addaction name="separator"/>
+    <addaction name="actionNextFrame"/>
+    <addaction name="actionPreviousFrame"/>
+    <addaction name="separator"/>
+    <addaction name="actionAutoContrast"/>
     <addaction name="actionScreenShot"/>
    </widget>
    <widget class="QMenu" name="menuSetting">
@@ -146,6 +149,8 @@
    <addaction name="actionAutoContrast"/>
    <addaction name="actionScreenShot"/>
    <addaction name="separator"/>
+   <addaction name="actionPreviousFrame"/>
+   <addaction name="actionNextFrame"/>
   </widget>
   <action name="actionSave">
    <property name="icon">
@@ -516,14 +521,28 @@
     <string>HDFf5 to JSON</string>
    </property>
   </action>
-  <action name="actionImport_DL_models">
+  <action name="actionNextFrame">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/next_frame.png</normaloff>../icons/next_frame.png</iconset>
+   </property>
    <property name="text">
-    <string>Import DL models</string>
+    <string>Next Frame</string>
+   </property>
+   <property name="shortcut">
+    <string>Right</string>
    </property>
   </action>
-  <action name="action_Import_Seg">
+  <action name="actionPreviousFrame">
+   <property name="icon">
+    <iconset>
+     <normaloff>../icons/last_frame.png</normaloff>../icons/last_frame.png</iconset>
+   </property>
    <property name="text">
-    <string>Import Module</string>
+    <string>Previous Frame</string>
+   </property>
+   <property name="shortcut">
+    <string>Left</string>
    </property>
   </action>
  </widget>

@@ -2,7 +2,7 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import QDockWidget, QTreeWidgetItem, QMenu, QMessageBox, QWidget, QFileDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.Qt import QStandardItem, QStandardItemModel, QAbstractItemView
+from PyQt5.Qt import QAbstractItemView
 
 from .enumDef import *
 from .func_annotation import *

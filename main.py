@@ -1,6 +1,6 @@
 # from PyQt5.QtGui import *
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDockWidget, QGraphicsScene, QGraphicsView, QToolBar, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QLineEdit, QDoubleSpinBox, QTreeWidgetItem, QDialog, QAction
-from PyQt5.QtGui import QFont, QImage, QKeySequence, QPixmap, QIcon 
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QMessageBox, QShortcut, QLabel, QDoubleSpinBox, QDialog
+from PyQt5.QtGui import QFont, QKeySequence 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5 import uic
 import cv2
@@ -80,7 +80,9 @@ class MainWindow(QMainWindow):
         ############################
         #### setup the tool bar ####
         ############################
-          
+
+        # self.one_file_mode = QCheckBox('One File Mode')
+        # self.toolBar.addWidget(self.one_file_mode)  
         self.toolBar.addWidget(QLabel(" Livewire granularity: "))
         self.livewireGranularity = QDoubleSpinBox(self.toolBar)
         self.livewireGranularity.setKeyboardTracking(False)
@@ -150,6 +152,8 @@ class MainWindow(QMainWindow):
         self.actionPreviousImage.triggered.connect(self.fileList.previous_image)
         self.actionAutoContrast.triggered.connect(self.auto_contrast)
         self.actionScreenShot.triggered.connect(self.take_screenshot)
+        self.actionNextFrame.triggered.connect(self.next_frame)
+        self.actionPreviousFrame.triggered.connect(self.last_frame)
 
         # analysis menu actions
         # for f in os.listdir('instSegModules'):
@@ -231,6 +235,16 @@ class MainWindow(QMainWindow):
         if image_load_success:
             self.load_annotation(annotation_path)
         return image_load_success
+
+    def next_frame(self):
+        if self.image.next():
+            self.sync_statusBar()
+            self.canvas.sync_image()
+
+    def last_frame(self):
+        if self.image.last():
+            self.sync_statusBar()
+            self.canvas.sync_image()
 
     ####################################
     #### porject, file, folder open ####
@@ -501,8 +515,13 @@ class MainWindow(QMainWindow):
             status = '(Project Mode) '
         else:
             status = '(File Mode) '
+
+        if self.image.is_open():
+            status = status + 'Image: {}/{}'.format(self.image.idx+1, len(self.image.data))
+        else:
+            status = status + 'Image: 0/0'
         
-        status = status + 'Annotation Mode: ' + self.canvas.tool
+        status = status + ', Annotation Mode: ' + self.canvas.tool
         
         if self.image.auto_contrast == True:
             status = status + ', Auto Contrast: On'

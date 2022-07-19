@@ -1,5 +1,5 @@
 from skimage.filters import sobel
-from skimage.draw import circle
+from skimage.draw import disk
 from scipy import ndimage
 from .image import Image
 import cv2
@@ -106,7 +106,7 @@ class Livewire(object):
 
             if self._pt_in_img(self.seed):
                 processed = np.ones((self.size_y, self.size_x), dtype=np.bool)
-                rr, cc = circle(seed[1], seed[0], live_radius, shape=(self.size_y, self.size_x))
+                rr, cc = disk(seed[1], seed[0], live_radius, shape=(self.size_y, self.size_x))
                 processed[rr, cc] = False
 
                 self.previous = np.zeros((self.size_y, self.size_x), np.int32)-1
