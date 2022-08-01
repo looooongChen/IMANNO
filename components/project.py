@@ -4,7 +4,7 @@ from .image import compute_checksum, Image
 from .func_annotation import *
 from .messages import annotation_move_message, ProgressDiag
 from .enumDef import *
-from .contour import *
+# from .contour import *
 import uuid
 from datetime import datetime as datim
 import copy

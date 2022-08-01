@@ -14,7 +14,7 @@ by Institut of Imaging & Computer Vision, RWTH Aachen University, Germany
 ## Dependencies:
 
 - python = 3.x
-- opencv = 3.x 
+- opencv
 - pyqt = 5.x
 - h5py
 - scikit-image

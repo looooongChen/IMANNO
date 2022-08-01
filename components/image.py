@@ -39,11 +39,11 @@ class Image(object):
         # self.data = cv2.imdecode(numpyarray, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
         _, ext = os.path.splitext(path)
         if ext in ['.tif', '.tiff']:
-            self.data = cv2.imreadmulti(path)[1]
+            self.data = cv2.imreadmulti(path, flags=cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYDEPTH)[1]
         elif ext in ['.avi', '.mp4']:
             pass
         else:
-            self.data = cv2.imread(path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+            self.data = cv2.imread(path, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYDEPTH)
             self.data = [self.data] if self.data is not None else []
         
         if len(self.data) > 0:
@@ -52,6 +52,8 @@ class Image(object):
             self.path = path
             self.filename = os.path.basename(path)
             self.height, self.width = self.data[0].shape[0], self.data[0].shape[1]
+            self.mmax, self.mmin = np.max(self.data), np.min(self.data)
+            print(self.data[0].dtype, self.mmin, self.mmax)
             self.disp = self.data[0]
             self.auto_contrast = False
             # self.checksum = None
@@ -61,6 +63,8 @@ class Image(object):
         if len(self.data) > 0:
             self.idx = self.idx + 1 if self.idx < len(self.data)-1 else 0
             self.disp = self.data[self.idx]
+            if self.auto_contrast:
+                self.disp = ((self.data[self.idx]-self.mmin)/(self.mmax-self.mmin)*255).astype(np.uint8)
             return True
         else:
             return False
@@ -90,8 +94,7 @@ class Image(object):
             if self.auto_contrast is False and auto_contrast:
                 # data_sub = self.data[::16,::16]
                 # mmin, mmax = data_sub.min(), data_sub.max()
-                mmin, mmax = self.data[self.idx].min(), self.data[self.idx].max()
-                self.disp = ((self.data[self.idx]-mmin)*(255/(mmax-mmin))).astype(np.uint8)
+                self.disp = ((self.data[self.idx]-self.mmin)/(self.mmax-self.mmin)*255).astype(np.uint8)
                 self.auto_contrast = True
             if self.auto_contrast and auto_contrast is False:
                 self.disp = self.data[self.idx]

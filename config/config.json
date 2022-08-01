@@ -1,5 +1,5 @@
 {
-  "fileDirectory": "E:/DeepCAD",
+  "fileDirectory": "/home/staff/chen",
   "configDirectory": "./config",
   "DotAnnotationRadius": 20,
   "CurveAnnotationWidth": 3,
