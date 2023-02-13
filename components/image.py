@@ -45,15 +45,22 @@ class Image(object):
         else:
             self.data = cv2.imread(path, cv2.IMREAD_UNCHANGED | cv2.IMREAD_ANYDEPTH)
             self.data = [self.data] if self.data is not None else []
+        self.data = [np.squeeze(f) for f in self.data]
+
+        # for f in self.data:
+        #     print(f.shape, f.dtype)
         
         if len(self.data) > 0:
             if len(self.data[0].shape) == 3:
+                if self.data[0].shape[-1] == 4:
+                    self.data = [im[...,:3] for im in self.data]
+                elif self.data[0].shape[-1] == 2:
+                    self.data = [im[...,0] for im in self.data]
                 self.data = [np.flip(im, 2) for im in self.data]
             self.path = path
             self.filename = os.path.basename(path)
             self.height, self.width = self.data[0].shape[0], self.data[0].shape[1]
             self.mmax, self.mmin = np.max(self.data), np.min(self.data)
-            print(self.data[0].dtype, self.mmin, self.mmax)
             self.disp = self.data[0]
             self.auto_contrast = False
             # self.checksum = None
@@ -103,16 +110,17 @@ class Image(object):
     def get_QImage(self):
         if self.is_open():
             disp = (self.disp/255).astype(np.uint8) if self.disp.dtype == 'uint16' else self.disp
+            # print(disp.shape, disp.dtype)
             if len(disp.shape) == 2:
-                disp = cv2.cvtColor(disp,cv2.COLOR_GRAY2RGBA) 
-            elif disp.shape[-1] == 3:
-                disp = cv2.cvtColor(disp,cv2.COLOR_RGB2RGBA)
-            elif disp.shape[-1] ==4:
-                pass
-            else:
-                return None
-                print("Not supported image shape:", self.data[0].shape, ', image dtype:', self.data[0].dtype) 
-            return QImage(disp, self.width, self.height, QImage.Format_RGBA8888)
+                disp = cv2.cvtColor(disp,cv2.COLOR_GRAY2RGB) 
+            # if disp.shape[-1] == 2:
+            #     disp = cv2.cvtColor(disp[...,-1],cv2.COLOR_GRAY2RGB) 
+            # elif disp.shape[-1] == 3:
+            #     # disp = cv2.cvtColor(disp,cv2.COLOR_RGB2RGBA)
+            #     # disp = cv2.cvtColor(disp,cv2.COLOR_BGR2RGB)
+            #     pass
+            return QImage(disp.copy(), self.width, self.height, QImage.Format_RGB888)
+            # return QImage(np.transpose(disp,(1,0,2)).copy(), self.width, self.height, QImage.Format_RGB888)
         else:
             return None
 

@@ -102,17 +102,18 @@ class Canvas(QGraphicsScene):
     #### synchronize image display ####
     ###################################
 
-    def sync(self):
-        self.sync_image()
+    def sync(self, rescale=True):
+        self.sync_image(rescale=rescale)
         self.sync_disp()
 
-    def sync_image(self):
+    def sync_image(self, rescale=True):
         if self.image.is_open():
             self.bgPixmap.setPixmap(QPixmap.fromImage(self.image.get_QImage()))
-            self.view.setSceneRect(0,0,self.image.width,self.image.height)
-            vis_rect = self.view.mapToScene(self.view.rect()).boundingRect()
-            scale = min(vis_rect.width()/self.image.width, vis_rect.height()/self.image.height)
-            self.view.scale(scale, scale)
+            if rescale:
+                self.view.setSceneRect(0,0,self.image.width,self.image.height)
+                vis_rect = self.view.mapToScene(self.view.rect()).boundingRect()
+                scale = min(vis_rect.width()/self.image.width, vis_rect.height()/self.image.height)
+                self.view.scale(scale, scale)
             if self.tool == LIVEWIRE:
                 self.livewire.sync_image()
 

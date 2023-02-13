@@ -73,7 +73,7 @@ ICONS[SYM_WARNING] = os.path.join(icon_path, 'warning.png')
 
 
 DEFAULT_COLOR = '#00cc00'
-SHADOW_COLOR = '#000000'
+SHADOW_COLOR = '#009900'
 
 LABEL_COLORS = {'red':'#ec524b',
                 'orange': '#ffa62b',
